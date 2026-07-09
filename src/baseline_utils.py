@@ -142,6 +142,11 @@ def model_epoch_path(universe, tag, seed, step):
     return os.path.join(model_dir(universe, tag), f"MATCC_{universe}_model_params_epoch_{step}_seed_{seed}.pth")
 
 
+def last_ckpt_path(universe, tag, seed):
+    """Per-epoch resume checkpoint (model + optimizer + epoch + RNG)."""
+    return os.path.join(model_dir(universe, tag), f"last_MATCC_{universe}_seed_{seed}.pth")
+
+
 def pred_path(universe, tag, seed):
     return os.path.join(ROOT, "label_pred", universe, tag, f"{universe}_pred_{seed}.pkl")
 

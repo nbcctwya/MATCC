@@ -41,9 +41,14 @@ def main():
     ap.add_argument("--gpu", type=int, default=0)
     ap.add_argument("--tag", default="2009_2025")
     ap.add_argument("--smoke", action="store_true")
+    ap.add_argument("--force", action="store_true",
+                    help="rerun even if predictions already exist")
     args = ap.parse_args()
 
     tag = "smoke" if args.smoke else args.tag
+    if os.path.exists(pred_path(args.universe, tag, args.seed)) and not args.force:
+        print(f"[test] predictions exist, skipping: {pred_path(args.universe, tag, args.seed)}")
+        return
     set_seed(args.seed)
     device = get_device(args.gpu)
 
@@ -58,7 +63,7 @@ def main():
 
     model = MATCC(d_model=D_MODEL, d_feat=D_FEAT, seq_len=SEQ_LEN,
                   t_nhead=N_HEAD, S_dropout_rate=DROPOUT).to(device)
-    model.load_state_dict(torch.load(mp, map_location=device))
+    model.load_state_dict(torch.load(mp, map_location=device, weights_only=False))
     model.eval()
 
     preds, labels, ic, ric = [], [], [], []

@@ -132,9 +132,15 @@ def main():
     ap.add_argument("--universe", required=True, choices=["csi300", "sp500"])
     ap.add_argument("--tag", default="2009_2025")
     ap.add_argument("--smoke", action="store_true", help="use the tiny-window *_smoke.yaml")
+    ap.add_argument("--force", action="store_true", help="rebuild even if all splits exist")
     args = ap.parse_args()
 
     tag = "smoke" if args.smoke else args.tag
+    if not args.force and all(os.path.exists(dataset_path(args.universe, tag, s))
+                              for s in ("train", "valid", "test")):
+        print(f"[prepare_data] all splits exist for {args.universe}/{tag}, "
+              f"skipping (use --force to rebuild).")
+        return
     ypath = yaml_path(args.universe, smoke=args.smoke)
     with open(ypath, "r") as f:
         cfg = yaml.safe_load(f)
