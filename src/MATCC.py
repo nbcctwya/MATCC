@@ -5,8 +5,8 @@ from torch.nn.modules.dropout import Dropout
 from torch.nn.modules.normalization import LayerNorm
 import math
 
-from RWKV import Block, RWKV_Init
-from DLinear import DLinear, DLinear_Init
+from .RWKV import Block, RWKV_Init
+from .DLinear import DLinear, DLinear_Init
 
 
 class SAttention(nn.Module):
@@ -156,7 +156,7 @@ class MATCC(nn.Module):
         )
 
     def forward(self, x):
-        x[N, T, [股票自身的, 市场]]
+        # x: [N, T, [股票自身的, 市场]]
         src = x[:, :, :self.gate_input_start_index]  # N, T, D
         gate_input = x[:, :,
                        self.gate_input_start_index:self.gate_input_end_index]
