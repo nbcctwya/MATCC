@@ -1,0 +1,61 @@
+# Smoke-test config: tiny date windows, CPU only. Does NOT clobber the real dataset (tag=smoke).
+qlib_init:
+  provider_uri: "~/.qlib/qlib_data/us_data"
+  region: us
+market: &market sp500
+benchmark: &benchmark ^gspc
+data_handler_config: &data_handler_config
+  start_time: 2022-11-01
+  end_time: 2023-06-30
+  fit_start_time: 2023-01-01
+  fit_end_time: 2023-02-28
+  instruments: *market
+  infer_processors:
+    - class: DropnaLabel
+      module_path: "DropExtremeLabel.py"
+    - class: DropExtremeLabel
+      module_path: "DropExtremeLabel.py"
+      kwargs:
+        fields_group: label
+        percentile: 0.975
+    - class: RobustZScoreNorm
+      kwargs:
+        fields_group: feature
+        clip_outlier: true
+    - class: Fillna
+      kwargs:
+        fields_group: feature
+    - class: CSZScoreNorm
+      kwargs:
+        fields_group: label
+  label: ["Ref($close, -5) / Ref($close, -1) - 1"]
+market_data_handler_config: &market_data_handler_config
+  start_time: 2022-11-01
+  end_time: 2023-06-30
+  fit_start_time: 2023-01-01
+  fit_end_time: 2023-02-28
+  instruments: *market
+  market_indices: ["^gspc", "^dji", "^ndx"]
+  infer_processors:
+    - class: RobustZScoreNorm
+      kwargs:
+        fields_group: feature
+        clip_outlier: true
+    - class: Fillna
+      kwargs:
+        fields_group: feature
+task:
+  dataset:
+    class: MASTERTSDatasetH
+    module_path: "MATCC_dataset.py"
+    kwargs:
+      handler:
+        class: Alpha158
+        module_path: qlib.contrib.data.handler
+        kwargs: *data_handler_config
+      segments:
+        train: [2023-01-01, 2023-02-28]
+        valid: [2023-03-01, 2023-03-31]
+        test: [2023-04-01, 2023-04-30]
+      step_len: 8
+      market_data_handler_config: *market_data_handler_config

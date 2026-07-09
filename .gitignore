@@ -1,0 +1,19 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Run outputs from this reproduction pipeline (train/test/backtest artifacts).
+# Upstream pretrained checkpoints under model_params/MATCC/ remain tracked.
+backtest_results/
+label_pred/
+metrics/
+util/handler_*.pkl
+util/handler_*.tmp
+dataset/csi300/
+dataset/csi800/
+dataset/csi500/
+dataset/sp500/
+model_params/csi300/
+model_params/csi800/
+model_params/csi500/
+model_params/sp500/
