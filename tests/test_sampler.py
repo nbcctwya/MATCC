@@ -1,6 +1,8 @@
 """Regression tests for the leak fixes.
 
-Run with:  python tests/test_sampler.py   (or pytest tests/)
+Run with either:
+    python tests/test_sampler.py     # no dependencies (uses plain assert)
+    pytest tests/                    # requires `pip install pytest` (listed in requirements.txt)
 """
 
 import os

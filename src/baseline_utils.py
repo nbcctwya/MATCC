@@ -172,8 +172,13 @@ def model_epoch_path(universe, tag, seed, step):
 
 
 def last_ckpt_path(universe, tag, seed):
-    """Per-epoch resume checkpoint (model + optimizer + epoch + RNG)."""
+    """Per-epoch resume checkpoint (model + optimizer + epoch + RNG + best_val_loss)."""
     return os.path.join(model_dir(universe, tag), f"last_MATCC_{universe}_seed_{seed}.pth")
+
+
+def best_path(universe, tag, seed):
+    """Best-validation-loss model state, written during training (not the deliverable)."""
+    return os.path.join(model_dir(universe, tag), f"best_MATCC_{universe}_seed_{seed}.pth")
 
 
 def pred_path(universe, tag, seed):

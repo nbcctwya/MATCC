@@ -21,6 +21,7 @@ import argparse
 import os
 import pickle
 import random
+import shutil
 import sys
 
 import numpy as np
@@ -30,9 +31,9 @@ import torch.optim as optim
 from src.MATCC import MATCC
 from my_lr_scheduler import ChainedScheduler
 from src.baseline_utils import (
-    calc_ic, cszscore, dataset_path, drop_extreme, ensure_parent, get_device,
-    last_ckpt_path, limit_threads, loss_fn, make_loader, model_path, set_seed,
-    worker_init_fn,
+    best_path, calc_ic, cszscore, dataset_path, drop_extreme, ensure_parent,
+    get_device, last_ckpt_path, limit_threads, loss_fn, make_loader, model_path,
+    set_seed, worker_init_fn,
 )
 
 # ---- Default training hyperparameters (from the original TrainConfig) --------
@@ -62,13 +63,14 @@ def build_scheduler(optimizer):
         step_size=3, cosine_period=COSINE_PERIOD)
 
 
-def save_resume(path, epoch, model, optimizer):
+def save_resume(path, epoch, model, optimizer, best_valid_loss):
     ensure_parent(path)
     tmp = path + ".tmp"
     torch.save({
         "epoch": epoch,
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
+        "best_valid_loss": best_valid_loss,
         "rng_torch": torch.get_rng_state(),
         "rng_cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
         "rng_np": np.random.get_state(),
@@ -149,15 +151,19 @@ def main():
     n_epoch = args.epochs if args.epochs is not None else (1 if args.smoke else N_EPOCH)
     num_workers = 0 if args.smoke else NUM_WORKERS
 
-    final_path = model_path(args.universe, tag, args.seed)
+    final_path = model_path(args.universe, tag, args.seed)   # deliverable; written ONLY on completion
+    best_p = best_path(args.universe, tag, args.seed)        # best-val model, written on improvement
     resume_path = last_ckpt_path(args.universe, tag, args.seed)
 
+    # TEST_*.pth is created only after all epochs complete -> its presence means "done".
     if os.path.exists(final_path) and not args.force:
-        print(f"[train] final checkpoint exists, skipping: {final_path}")
+        print(f"[train] final checkpoint exists (training complete), skipping: {final_path}")
         return
-    if args.restart and os.path.exists(resume_path):
-        print(f"[train] --restart: dropping resume checkpoint {resume_path}")
-        os.remove(resume_path)
+    if args.restart:
+        for p in (resume_path, best_p):
+            if os.path.exists(p):
+                print(f"[train] --restart: dropping {p}")
+                os.remove(p)
 
     limit_threads(4)
     set_seed(args.seed)
@@ -183,38 +189,47 @@ def main():
                            weight_decay=WEIGHT_DECAY)
 
     start_epoch = 0
+    best_valid_loss = float("inf")
     if os.path.exists(resume_path):
         ckpt = torch.load(resume_path, map_location=device, weights_only=False)
         model.load_state_dict(ckpt["model"])
         optimizer.load_state_dict(ckpt["optimizer"])
         start_epoch = int(ckpt["epoch"]) + 1
+        best_valid_loss = float(ckpt.get("best_valid_loss", float("inf")))
         lr_scheduler = build_scheduler(optimizer)
         for _ in range(start_epoch):
             lr_scheduler.step()
         restore_rng(ckpt)
-        print(f"[train] resumed from epoch {start_epoch} (checkpoint epoch {ckpt['epoch']}).")
+        print(f"[train] resumed from epoch {start_epoch} "
+              f"(best_val_loss so far={best_valid_loss:.6f}).")
     else:
         lr_scheduler = build_scheduler(optimizer)
         print("[train] starting fresh from epoch 0.")
 
-    ensure_parent(final_path)
-    best_valid_loss = float("inf")
+    ensure_parent(best_p)
     for step in range(start_epoch, n_epoch):
         train_loss = train_epoch(loaders["train"], optimizer, lr_scheduler, model, device)
         val_loss, valid_metrics = valid_epoch(loaders["valid"], model, device)
         print(f"[train] epoch {step}: train_loss={train_loss:.6f} val_loss={val_loss:.6f} "
               f"| val_IC={valid_metrics['IC']:.4f} val_ICIR={valid_metrics['ICIR']:.4f} "
               f"| lr={optimizer.param_groups[0]['lr']:.2e}")
-        save_resume(resume_path, step, model, optimizer)
         if val_loss < best_valid_loss:
             best_valid_loss = val_loss
-            torch.save(model.state_dict(), final_path)
-            print(f"[train]   new best val_loss={val_loss:.6f} -> saved {final_path}")
+            tmp = best_p + ".tmp"
+            torch.save(model.state_dict(), tmp)
+            os.replace(tmp, best_p)
+            print(f"[train]   new best val_loss={val_loss:.6f} -> saved {best_p}")
+        save_resume(resume_path, step, model, optimizer, best_valid_loss)
 
-    if best_valid_loss == float("inf"):
+    # All epochs done (or resumed past the end): publish the best model as TEST_*.pth.
+    ensure_parent(final_path)
+    if os.path.exists(best_p):
+        shutil.copyfile(best_p, final_path)
+        print(f"[train] training complete; best model -> {final_path}")
+    else:
         torch.save(model.state_dict(), final_path)
-        print(f"[train] no epochs trained; saved current model -> {final_path}")
-    print(f"[train] best val_loss={best_valid_loss:.6f}; final model -> {final_path}")
+        print(f"[train] no best checkpoint recorded; saved current model -> {final_path}")
+    print(f"[train] best val_loss={best_valid_loss:.6f}")
 
 
 if __name__ == "__main__":
