@@ -6,57 +6,85 @@ MATCC is a novel framework for robust stock price prediction, which explicitly e
 
 ![MATCC framework](fig/MATCC_structure.png)
 
-## Requirements
+## Reproduction pipeline
 
-1. Install dependencies.
+The maintained pipeline supports CSI300 and S&P500 and avoids two lookahead traps in
+the historical scripts: daily batches are grouped by the actual `datetime` index, and
+future labels are never used by inference-time processors.
 
-- pandas == 1.5.3
-- torch == 1.13.0
+### Requirements
 
-2. Install [Qlib](https://github.com/SJTU-DMTai/qlib). We recommend you to install Qlib from SJTU-Qlib.
+1. Create a Python 3.9 environment and install Qlib 0.9.7 plus the pinned project
+   dependencies:
 
-3. Get the CSI300 and CSI800 stock instruments from [Qlib dataset update](https://github.com/chenditc/investment_data/releases) and put it in your qlib data directory.
-
-4. Use the dataset we have provided. You can follow the link to get our preprocessed dataset [2020_2023](https://pan.baidu.com/s/15gt3FcnwqTBAy5oPbzhOsA?pwd=1234). If you fail to download from our link, you may try to use datasets from [MASTER](https://github.com/SJTU-DMTai/MASTER).
-
-5. If you want to design and implement your own data preprocessing methods, please refer to `util/DropExtremeLabel.py`. If you want to change the period of the train/validation/test dataset, please modify `util/2023.yaml`. To get CSI300 or CSI800, just change the `market` in `util/2023.yaml` and `universe` in `util/generate_dataset.py`. Run the following commmand:
-
+```bash
+pip install pyqlib==0.9.7
+pip install -r requirements.txt
 ```
-python util/generate_dataset.py --universe csi300
+
+2. Put local Qlib data at the paths configured in `util/csi300.yaml` and
+   `util/sp500.yaml` (by default `~/.qlib/qlib_data/cn_data` and
+   `~/.qlib/qlib_data/us_data`). The data must include the configured universes,
+   benchmarks, and three market indices.
+
+3. Adjust split dates, processors, labels, or market indices in the corresponding
+   YAML file when needed. Prepared datasets carry a hash of the complete normalized
+   configuration, so a YAML change automatically rebuilds stale split files.
+
+### Quick validation
+
+Run the complete CPU smoke chain for both markets:
+
+```bash
+bash run_smoke.sh
 ```
+
+This recreates smoke artifacts and runs data preparation, one-epoch training,
+evaluation, and backtesting.
+
+### Full baseline
+
+Run the resumable five-seed 2009–2025 pipeline:
+
+```bash
+bash run_baseline.sh
+```
+
+Useful variants:
+
+```bash
+GPU=1 bash run_baseline.sh
+FORCE=1 bash run_baseline.sh   # discard prior checkpoints and retrain from epoch 0
+```
+
+An interrupted normal run can be resumed by running the same command again. During
+an explicit restart, old resume, best, and final checkpoints are removed together so
+an obsolete final model cannot be mistaken for a completed new run.
+
+Training minimizes MSE, but checkpoint selection follows the portfolio objective:
+the epoch with the highest mean daily validation RankIC is published as the final
+`TEST_*.pth` model. Test data is never used for checkpoint selection.
+
+The individual maintained entry points are:
+
+```bash
+python scripts/prepare_data.py --universe csi300 --tag 2009_2025
+python train.py --universe csi300 --seed 0 --tag 2009_2025 --gpu 0
+python test.py --universe csi300 --seed 0 --tag 2009_2025 --gpu 0
+python backtest.py --universe csi300 --seeds 0,1,2,3,4 --tag 2009_2025
+```
+
+`train_model_MATCC.py` and `test_model_MATCC.py` are deprecated compatibility aliases
+that forward to `train.py` and `test.py`; they no longer contain independent legacy
+samplers. The obsolete `util/generate_dataset.py`, `util/2023.yaml`, and `backTest.py`
+entry points were removed because they used the old label-aware inference pipeline.
 
 ### Preprocessing
 
-The published data went through the following necessary preprocessing.
-
-1. Drop NA features, and perform **robust daily Z-score normalization** on each feature dimension.
-2. Drop NA labels and 5% of the most extreme labels, and perform **daily Z-score normalization** on labels.
-
-## Training
-
-To train the model in the paper, run this command:
-
-```train
-python train_model_MATCC.py
-```
-
-## Evaluation
-
-To evaluate our model on CSI300 or CSI800 dataset, you can change the `universe` and `model_param_path` in `test_model_MATCC.py` and run:
-
-```eval
-python test_model_MATCC.py
-```
-
-Then you will get `xxxxx_label.pkl` and `xxxxx_pred.pkl`, which are the prediction results and labels.
-
-## Backtest
-
-To get the AR, IR, and more portfolio-based metrics, you can run this command:
-
-```backtest
-python backtest.py
-```
+Features use training-period robust Z-score normalization and missing-value filling.
+Labels remain raw in prepared datasets. During training, cross-sectional label
+normalization and extreme-label handling are applied inside the training loop; test
+labels are used only for metric computation.
 
 ## Results
 

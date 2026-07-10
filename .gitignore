@@ -4,6 +4,7 @@ __pycache__/
 
 # Run outputs from this reproduction pipeline (train/test/backtest artifacts).
 # Upstream pretrained checkpoints under model_params/MATCC/ remain tracked.
+logs/
 backtest_results/
 label_pred/
 metrics/

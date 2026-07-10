@@ -172,13 +172,13 @@ def model_epoch_path(universe, tag, seed, step):
 
 
 def last_ckpt_path(universe, tag, seed):
-    """Per-epoch resume checkpoint (model + optimizer + epoch + RNG + best_val_loss)."""
+    """Per-epoch resume checkpoint, including best validation RankIC and RNG state."""
     return os.path.join(model_dir(universe, tag), f"last_MATCC_{universe}_seed_{seed}.pth")
 
 
 def best_path(universe, tag, seed):
-    """Best-validation-loss model state, written during training (not the deliverable)."""
-    return os.path.join(model_dir(universe, tag), f"best_MATCC_{universe}_seed_{seed}.pth")
+    """Maximum-validation-RankIC model state (not the final deliverable path)."""
+    return os.path.join(model_dir(universe, tag), f"best_rankic_MATCC_{universe}_seed_{seed}.pth")
 
 
 def pred_path(universe, tag, seed):

@@ -1,5 +1,5 @@
 """
-Test MATCC for one (universe, seed): load the best-val checkpoint, predict on the
+Test MATCC for one (universe, seed): load the max-validation-RankIC checkpoint, predict on the
 test split with correct day-batches (so SAttention attends across same-day stocks),
 and write a correctly-aligned prediction/label Series + IC metrics.
 

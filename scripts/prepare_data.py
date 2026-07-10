@@ -41,17 +41,53 @@ REGION_CONST = {"cn": REG_CN, "us": REG_US}
 
 
 def config_hash(cfg):
-    """Short hash of the handler/processor config so a YAML change invalidates the
-    handler cache (the cache otherwise would silently reuse data built with an older,
-    possibly leaky processor setup)."""
-    relevant = {
-        "data_handler_config": cfg.get("data_handler_config"),
-        "market_data_handler_config": cfg.get("market_data_handler_config"),
-        "segments": cfg["task"]["dataset"]["kwargs"].get("segments"),
-        "step_len": cfg["task"]["dataset"]["kwargs"].get("step_len"),
-    }
-    blob = json.dumps(relevant, sort_keys=True, default=str).encode()
-    return hashlib.md5(blob).hexdigest()[:8]
+    """Hash the complete normalized YAML configuration.
+
+    The fingerprint covers provider, region, handlers, processors, expressions,
+    segments, market indices and dataset parameters.  Any configuration change must
+    invalidate both the fitted-handler cache and the prepared split files.
+    """
+    blob = json.dumps(cfg, sort_keys=True, default=str, separators=(",", ":")).encode()
+    return hashlib.sha256(blob).hexdigest()[:16]
+
+
+def dataset_manifest_path(universe, tag):
+    return os.path.join(ROOT, "dataset", universe, f"{universe}_dataset_{tag}.json")
+
+
+def dataset_cache_matches(universe, tag, fingerprint):
+    """Return True only when every split and its matching manifest are present."""
+    if not all(os.path.isfile(dataset_path(universe, tag, split))
+               for split in ("train", "valid", "test")):
+        return False
+    try:
+        with open(dataset_manifest_path(universe, tag), "r") as f:
+            manifest = json.load(f)
+    except (OSError, ValueError, TypeError):
+        return False
+    return (
+        manifest.get("version") == 1
+        and manifest.get("universe") == universe
+        and manifest.get("tag") == tag
+        and manifest.get("config_hash") == fingerprint
+    )
+
+
+def write_dataset_manifest(universe, tag, fingerprint):
+    """Atomically publish the manifest after all three splits are safely written."""
+    path = dataset_manifest_path(universe, tag)
+    ensure_parent(path)
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump({
+            "version": 1,
+            "universe": universe,
+            "tag": tag,
+            "config_hash": fingerprint,
+            "splits": ["train", "valid", "test"],
+        }, f, indent=2, sort_keys=True)
+        f.write("\n")
+    os.replace(tmp, path)
 
 
 def normalize_module_paths(obj):
@@ -154,16 +190,19 @@ def main():
     args = ap.parse_args()
 
     tag = "smoke" if args.smoke else args.tag
-    if not args.force and all(os.path.exists(dataset_path(args.universe, tag, s))
-                              for s in ("train", "valid", "test")):
-        print(f"[prepare_data] all splits exist for {args.universe}/{tag}, "
-              f"skipping (use --force to rebuild).")
-        return
     ypath = yaml_path(args.universe, smoke=args.smoke)
     with open(ypath, "r") as f:
         cfg = yaml.safe_load(f)
 
     normalize_module_paths(cfg)
+    fingerprint = config_hash(cfg)
+    if not args.force and dataset_cache_matches(args.universe, tag, fingerprint):
+        print(f"[prepare_data] dataset cache matches config {fingerprint} for "
+              f"{args.universe}/{tag}; skipping (use --force to rebuild).")
+        return
+    if not args.force:
+        print(f"[prepare_data] dataset cache missing or stale for {args.universe}/{tag}; "
+              f"rebuilding with config {fingerprint}.")
     check_market_indices(cfg)
 
     region_str = cfg["qlib_init"]["region"]
@@ -181,11 +220,15 @@ def main():
         ds = dataset.prepare(split, col_set=["feature", "label"], data_key=DataHandlerLP.DK_I)
         out = dataset_path(args.universe, tag, split)
         ensure_parent(out)
-        with open(out, "wb") as f:
+        tmp = out + ".tmp"
+        with open(tmp, "wb") as f:
             pickle.dump(ds, f)
+        os.replace(tmp, out)
         report(split, ds)
         print(f"[prepare_data]   -> {out}")
 
+    write_dataset_manifest(args.universe, tag, fingerprint)
+    print(f"[prepare_data] manifest -> {dataset_manifest_path(args.universe, tag)}")
     print("[prepare_data] DONE.")
 
 
