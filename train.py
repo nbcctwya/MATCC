@@ -5,17 +5,16 @@ Usage:
     conda run -n matcc python train.py --universe csi300 --seed 0 --tag 2009_2025
     conda run -n matcc python train.py --universe csi300 --seed 0 --smoke   # 1 epoch, CPU
 
-Resume behaviour:
-  * If the final checkpoint TEST_MATCC_{u}_seed_{s}.pth exists  -> skip (already done),
-    unless --force.
-  * Else if last_MATCC_{u}_seed_{s}.pth exists -> resume from the next epoch
-    (restores model + optimizer + RNG, and fast-forwards the LR scheduler).
-  * Else -> train from epoch 0.
-  --restart drops the resume checkpoint and starts over; --force retrains even if done.
+Label handling (leak-free, matches MASTER):
+  * The handler only normalizes FEATURES (RobustZScoreNorm + Fillna). Labels reach
+    the model RAW.
+  * drop_extreme (drop NaN + top/bottom 2.5%) and cszscore are applied per daily
+    batch INSIDE train_epoch -- training only. Validation/test only drop NaN, so no
+    future/test label is ever used to filter or normalize samples.
+  * Each epoch evaluates the VALIDATION set only (test is never peeked at during
+    training). The best-validation-loss model is saved as the final checkpoint.
 
-Reproduces the reference train_model_MATCC.py loop (DailyBatchSamplerRandom day-batches,
-MSE+NaN-mask loss, Adam + ChainedScheduler warmup-cosine, grad-value clip 3.0), fully
-RNG-seeded, with tag-aware paths.
+Resume: skip if TEST_ exists (--force to redo); else resume from last_MATCC_*.pth.
 """
 
 import argparse
@@ -31,8 +30,9 @@ import torch.optim as optim
 from src.MATCC import MATCC
 from my_lr_scheduler import ChainedScheduler
 from src.baseline_utils import (
-    calc_ic, dataset_path, ensure_parent, get_device, last_ckpt_path,
-    limit_threads, loss_fn, make_loader, model_path, set_seed, worker_init_fn,
+    calc_ic, cszscore, dataset_path, drop_extreme, ensure_parent, get_device,
+    last_ckpt_path, limit_threads, loss_fn, make_loader, model_path, set_seed,
+    worker_init_fn,
 )
 
 # ---- Default training hyperparameters (from the original TrainConfig) --------
@@ -63,7 +63,6 @@ def build_scheduler(optimizer):
 
 
 def save_resume(path, epoch, model, optimizer):
-    """Atomically save a per-epoch resume checkpoint (tmp + rename)."""
     ensure_parent(path)
     tmp = path + ".tmp"
     torch.save({
@@ -91,11 +90,12 @@ def train_epoch(data_loader, optimizer, lr_scheduler, model, device):
     losses = []
     for data in data_loader:
         data = torch.squeeze(data, dim=0)
-        # data: [N, T=8, F=222] = 158 stock + 63 market + 1 label
-        feature = data[:, :, 0:-1].to(device)
-        label = data[:, -1, -1].to(device)
+        feature = data[:, :, 0:-1]
+        label = data[:, -1, -1]
+        keep = drop_extreme(label)                       # train-only: drop NaN + extremes
+        feature, label = feature[keep].to(device), label[keep].to(device)
         pred = model(feature.float())
-        loss = loss_fn(pred, label)
+        loss = loss_fn(pred, cszscore(label))
         losses.append(loss.item())
         optimizer.zero_grad()
         loss.backward()
@@ -113,8 +113,10 @@ def valid_epoch(data_loader, model, device):
             data = torch.squeeze(data, dim=0)
             feature = data[:, :, 0:-1].to(device)
             label = data[:, -1, -1].to(device)
+            m = ~torch.isnan(label)                      # eval: drop NaN only (no extreme drop)
+            feature, label = feature[m], label[m]
             pred = model(feature.float())
-            losses.append(loss_fn(pred, label).item())
+            losses.append(loss_fn(pred, cszscore(label)).item())
             daily_ic, daily_ric = calc_ic(
                 pred.detach().cpu().numpy(), label.detach().cpu().numpy())
             ic.append(daily_ic)
@@ -150,24 +152,21 @@ def main():
     final_path = model_path(args.universe, tag, args.seed)
     resume_path = last_ckpt_path(args.universe, tag, args.seed)
 
-    # Skip if already fully trained.
     if os.path.exists(final_path) and not args.force:
         print(f"[train] final checkpoint exists, skipping: {final_path}")
         return
-
     if args.restart and os.path.exists(resume_path):
         print(f"[train] --restart: dropping resume checkpoint {resume_path}")
         os.remove(resume_path)
 
     limit_threads(4)
-    set_seed(args.seed)  # sets cudnn flags + base seed (also the DataLoader worker base)
+    set_seed(args.seed)
     device = get_device(args.gpu)
     pin_memory = device.type == "cuda"
 
     print(f"== train: universe={args.universe} seed={args.seed} tag={tag} "
           f"device={device} epochs={n_epoch} ==")
 
-    # Data
     loaders = {}
     for split in ("train", "valid", "test"):
         with open(dataset_path(args.universe, tag, split), "rb") as f:
@@ -189,8 +188,6 @@ def main():
         model.load_state_dict(ckpt["model"])
         optimizer.load_state_dict(ckpt["optimizer"])
         start_epoch = int(ckpt["epoch"]) + 1
-        # ChainedScheduler is not a torch _LRScheduler; rebuild and fast-forward to the
-        # resume epoch (verified to reproduce the exact per-epoch LR).
         lr_scheduler = build_scheduler(optimizer)
         for _ in range(start_epoch):
             lr_scheduler.step()
@@ -200,22 +197,24 @@ def main():
         lr_scheduler = build_scheduler(optimizer)
         print("[train] starting fresh from epoch 0.")
 
-    if start_epoch >= n_epoch:
-        print(f"[train] checkpoint already at epoch {start_epoch} >= {n_epoch}; "
-              f"writing final model.")
-
     ensure_parent(final_path)
+    best_valid_loss = float("inf")
     for step in range(start_epoch, n_epoch):
         train_loss = train_epoch(loaders["train"], optimizer, lr_scheduler, model, device)
         val_loss, valid_metrics = valid_epoch(loaders["valid"], model, device)
-        test_loss, test_metrics = valid_epoch(loaders["test"], model, device)
         print(f"[train] epoch {step}: train_loss={train_loss:.6f} val_loss={val_loss:.6f} "
-              f"test_loss={test_loss:.6f} | val_IC={valid_metrics['IC']:.4f} "
-              f"test_IC={test_metrics['IC']:.4f} | lr={optimizer.param_groups[0]['lr']:.2e}")
+              f"| val_IC={valid_metrics['IC']:.4f} val_ICIR={valid_metrics['ICIR']:.4f} "
+              f"| lr={optimizer.param_groups[0]['lr']:.2e}")
         save_resume(resume_path, step, model, optimizer)
+        if val_loss < best_valid_loss:
+            best_valid_loss = val_loss
+            torch.save(model.state_dict(), final_path)
+            print(f"[train]   new best val_loss={val_loss:.6f} -> saved {final_path}")
 
-    torch.save(model.state_dict(), final_path)
-    print(f"[train] saved final model -> {final_path}")
+    if best_valid_loss == float("inf"):
+        torch.save(model.state_dict(), final_path)
+        print(f"[train] no epochs trained; saved current model -> {final_path}")
+    print(f"[train] best val_loss={best_valid_loss:.6f}; final model -> {final_path}")
 
 
 if __name__ == "__main__":

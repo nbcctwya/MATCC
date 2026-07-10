@@ -1,0 +1,14 @@
+# MATCC baseline reproduction — core dependencies.
+# Validated on conda env "matcc" (Python 3.9). Install qlib first, then the rest.
+#
+#   pip install pyqlib            # qlib==0.9.7 (provides Alpha158, backtest, TopkDropoutStrategy)
+#   pip install -r requirements.txt
+#
+# Note: qlib 0.9.7 is incompatible with NumPy 2.x — keep numpy<2.
+
+numpy<2.0
+pandas>=1.5,<3.0
+torch>=2.0            # validated with 2.8.0+cu129
+pyyaml>=6.0
+scikit-learn>=1.2     # only used by the optional leak-diagnostic scripts, not the pipeline
+tensorboard>=2.11     # optional: train.py no longer depends on it (legacy)

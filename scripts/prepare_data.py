@@ -18,6 +18,8 @@ Notes:
 """
 
 import argparse
+import hashlib
+import json
 import os
 import pickle
 import sys
@@ -36,6 +38,20 @@ from src.baseline_utils import UTIL_DIR, dataset_path, ensure_parent, yaml_path
 
 
 REGION_CONST = {"cn": REG_CN, "us": REG_US}
+
+
+def config_hash(cfg):
+    """Short hash of the handler/processor config so a YAML change invalidates the
+    handler cache (the cache otherwise would silently reuse data built with an older,
+    possibly leaky processor setup)."""
+    relevant = {
+        "data_handler_config": cfg.get("data_handler_config"),
+        "market_data_handler_config": cfg.get("market_data_handler_config"),
+        "segments": cfg["task"]["dataset"]["kwargs"].get("segments"),
+        "step_len": cfg["task"]["dataset"]["kwargs"].get("step_len"),
+    }
+    blob = json.dumps(relevant, sort_keys=True, default=str).encode()
+    return hashlib.md5(blob).hexdigest()[:8]
 
 
 def normalize_module_paths(obj):
@@ -89,7 +105,9 @@ def build_dataset(cfg, universe, tag):
     handler_conf = cfg["task"]["dataset"]["kwargs"]["handler"]
     seg = cfg["task"]["dataset"]["kwargs"]["segments"]
     h_cache = os.path.join(
-        UTIL_DIR, f"handler_{universe}_{tag}_{str(seg['train'][0])[:10]}_{str(seg['test'][1])[:10]}.pkl")
+        UTIL_DIR,
+        f"handler_{universe}_{tag}_{str(seg['train'][0])[:10]}_{str(seg['test'][1])[:10]}"
+        f"_{config_hash(cfg)}.pkl")
 
     if os.path.exists(h_cache) and not _handler_cache_loadable(h_cache):
         print(f"[prepare_data] removing corrupt handler cache: {h_cache}")

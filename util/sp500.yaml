@@ -10,13 +10,6 @@ data_handler_config: &data_handler_config
   fit_end_time: 2020-12-31
   instruments: *market
   infer_processors:
-    - class: DropnaLabel
-      module_path: "DropExtremeLabel.py"
-    - class: DropExtremeLabel
-      module_path: "DropExtremeLabel.py"
-      kwargs:
-        fields_group: label
-        percentile: 0.975
     - class: RobustZScoreNorm
       kwargs:
         fields_group: feature
@@ -24,9 +17,6 @@ data_handler_config: &data_handler_config
     - class: Fillna
       kwargs:
         fields_group: feature
-    - class: CSZScoreNorm
-      kwargs:
-        fields_group: label
   label: ["Ref($close, -5) / Ref($close, -1) - 1"]
 market_data_handler_config: &market_data_handler_config
   start_time: 2009-01-01

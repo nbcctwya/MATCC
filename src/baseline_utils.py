@@ -63,36 +63,65 @@ def limit_threads(cpu_num=4):
 # Data loading (one trading day = one batch of all stocks)
 # --------------------------------------------------------------------------- #
 class DailyBatchSamplerRandom(Sampler):
-    """Yield, per iteration, the row-indices of one trading day's stocks.
+    """Yield, per iteration, the row POSITIONS of one trading day's stocks.
 
-    Verbatim from the original train_model_MATCC.py / test_model_MATCC.py so batch
-    formation stays identical to the reference implementation.
+    Order-agnostic: groups the dataset index by its 'datetime' level and yields the
+    actual positions of that day's stocks. The original MATCC/MASTER sampler assumed
+    the rows were date-contiguous and sliced with cumsum ranges -- but the prepared
+    data is instrument-sorted, so those ranges bled across many dates of ONE stock,
+    turning each "daily" batch into ~1 year of a single stock and causing SAttention
+    to attend across future dates (lookahead leak). Grouping by datetime explicitly
+    fixes this regardless of the underlying row order.
     """
 
     def __init__(self, data_source, shuffle=False):
         super().__init__(data_source)
         self.data_source = data_source
         self.shuffle = shuffle
-        # number of samples in each (daily) batch
-        self.daily_count = pd.Series(
-            index=self.data_source.get_index(), dtype=np.float64
-        ).groupby("datetime").size().values
-        # begin index of each batch
-        self.daily_index = np.roll(np.cumsum(self.daily_count), 1)
-        self.daily_index[0] = 0
+        index = data_source.get_index()
+        positions = pd.Series(np.arange(len(index)), index=index)
+        # one position-array per datetime, in chronological order
+        self.daily_groups = (
+            positions.groupby(level="datetime").apply(lambda g: g.to_numpy()).to_list()
+        )
 
     def __iter__(self):
+        order = np.arange(len(self.daily_groups))
         if self.shuffle:
-            index = np.arange(len(self.daily_count))
-            np.random.shuffle(index)
-            for i in index:
-                yield np.arange(self.daily_index[i], self.daily_index[i] + self.daily_count[i])
-        else:
-            for idx, count in zip(self.daily_index, self.daily_count):
-                yield np.arange(idx, idx + count)
+            np.random.shuffle(order)
+        for i in order:
+            yield self.daily_groups[i]
 
     def __len__(self):
-        return len(self.data_source)
+        return len(self.daily_groups)
+
+
+def cszscore(label):
+    """Cross-sectional z-score of a 1-D label tensor (NaNs ignored, left as NaN)."""
+    label = label.clone().float()
+    m = ~torch.isnan(label)
+    if m.sum() > 1:
+        vals = label[m]
+        label[m] = (vals - vals.mean()) / (vals.std() + 1e-12)
+    return label
+
+
+def drop_extreme(label, pct=0.025):
+    """Boolean mask dropping NaNs AND the top/bottom `pct` of labels.
+
+    Mirrors MASTER's drop_extreme: applied per cross-section (per daily batch) during
+    TRAINING only -- never on validation/test, so no test/future label info is used.
+    """
+    mask = ~torch.isnan(label)
+    valid_idx = torch.where(mask)[0]
+    n = valid_idx.numel()
+    k = int(n * pct)
+    if k > 0:
+        vals = label[valid_idx]
+        sorted_local = vals.argsort()
+        drop_local = torch.cat([sorted_local[:k], sorted_local[n - k:]])
+        mask[valid_idx[drop_local]] = False
+    return mask
 
 
 def make_loader(data, shuffle, drop_last, num_workers=0, pin_memory=False, worker_init_fn=None):
