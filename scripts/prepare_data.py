@@ -97,12 +97,12 @@ def normalize_module_paths(obj):
     which derives a garbled module name -> the fitted handler cache then fails to pickle
     (PicklingError). A dotted module path makes qlib use importlib.import_module instead,
     giving the classes a stable, importable '__module__' (ROOT is on sys.path, so
-    'util.DropExtremeLabel' / 'util.MATCC_dataset' resolve).
+    modules such as 'util.MATCC_dataset' resolve).
     """
     if isinstance(obj, dict):
         for k, v in obj.items():
             if k == "module_path" and isinstance(v, str) and v.endswith(".py"):
-                obj[k] = "util." + v[:-3]  # "DropExtremeLabel.py" -> "util.DropExtremeLabel"
+                obj[k] = "util." + v[:-3]
             else:
                 normalize_module_paths(v)
     elif isinstance(obj, list):
