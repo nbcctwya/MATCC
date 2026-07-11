@@ -3,10 +3,11 @@ __pycache__/
 *.py[cod]
 
 # Run outputs from this reproduction pipeline (train/test/backtest artifacts).
-logs/
-backtest_results/
-label_pred/
-metrics/
+# Anchored to repo root so they don't also ignore results/<same-name>/ subdirs.
+/logs/
+/backtest_results/
+/label_pred/
+/metrics/
 util/handler_*.pkl
 util/handler_*.tmp
 dataset/csi300/
@@ -17,3 +18,9 @@ model_params/csi300/
 model_params/csi800/
 model_params/csi500/
 model_params/sp500/
+
+# Unified eval (Baseline Results Protocol v1.0) regenerable intermediates.
+# The canonical results/ tree (metrics/, tables/, curves/, metadata/, diagnostics/)
+# is small text and intended to be committable/shareable; only these are excluded.
+results/_staging/
+results/_cache/

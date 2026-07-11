@@ -1,0 +1,7 @@
+market,model,ensemble_method,IC,ICIR,RankIC,RankICIR,AR,STD,MDD,Sharpe,Sortino,Calmar,num_test_days,seeds,pred_paths
+csi300,MATCC,avg_none,0.0397,0.2253,0.0538,0.3028,0.1136,0.1836,-0.3121,0.5858,0.9188,0.3639,727,"0,1,2,3,4",results/_cache/csi300_scores/csi300__avg_none.pkl
+csi300,MATCC,avg_zscore,0.0380,0.2159,0.0525,0.2976,0.0998,0.1763,-0.3046,0.5395,0.8340,0.3277,727,"0,1,2,3,4",results/_cache/csi300_scores/csi300__avg_zscore.pkl
+csi300,MATCC,avg_rank,0.0349,0.2058,0.0517,0.2937,0.0883,0.1769,-0.3200,0.4786,0.7465,0.2761,727,"0,1,2,3,4",results/_cache/csi300_scores/csi300__avg_rank.pkl
+sp500,MATCC,avg_none,0.0015,0.0122,0.0014,0.0117,0.1280,0.2053,-0.2317,0.5869,0.8532,0.5525,752,"0,1,2,3,4",results/_cache/sp500_scores/sp500__avg_none.pkl
+sp500,MATCC,avg_zscore,0.0006,0.0051,0.0009,0.0078,0.1047,0.2008,-0.2205,0.4958,0.7155,0.4748,752,"0,1,2,3,4",results/_cache/sp500_scores/sp500__avg_zscore.pkl
+sp500,MATCC,avg_rank,-0.0013,-0.0119,0.0003,0.0029,0.0830,0.1868,-0.2335,0.4269,0.6114,0.3556,752,"0,1,2,3,4",results/_cache/sp500_scores/sp500__avg_rank.pkl

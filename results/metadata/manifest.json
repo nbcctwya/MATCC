@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "baseline": "matcc",
+  "description": "MATCC baseline unified evaluation results (Protocol v1.0). Markets: CSI300 (cn) + SP500 (us); single model MATCC; 5 seeds; Qlib TopK-DropN(30,5) backtest with buy 5bps/sell 15bps.",
+  "primary_keys": {
+    "seed_metrics": [
+      "market",
+      "model",
+      "seed"
+    ],
+    "aggregate_metrics": [
+      "market",
+      "model"
+    ],
+    "ensemble_metrics": [
+      "market",
+      "model",
+      "ensemble_method"
+    ]
+  },
+  "files": {
+    "seed_metrics": "metrics/seed_metrics.csv",
+    "aggregate_metrics": "metrics/aggregate_metrics.csv",
+    "seed_table": "tables/seed_mean_std.csv",
+    "eval_config": "metadata/eval_config.json",
+    "manifest": "metadata/manifest.json",
+    "validation": "diagnostics/validation.json",
+    "ensemble_metrics": "metrics/ensemble_metrics.csv",
+    "ensemble_table": "tables/ensemble.csv",
+    "ensemble_curves": "curves/ensemble/*.csv"
+  }
+}

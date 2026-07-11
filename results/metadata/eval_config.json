@@ -1,0 +1,122 @@
+{
+  "baseline_id": "matcc",
+  "model_id": [
+    "MATCC"
+  ],
+  "description": "MATCC (CIKM 2024) cross-asset stock-ranking baseline, reproduced as a paper baseline. Unified results exported under Baseline Results Protocol v1.0.",
+  "markets": [
+    "csi300",
+    "sp500"
+  ],
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "tag": "2009_2025",
+  "split": {
+    "train": [
+      "2009-01-01",
+      "2020-12-31"
+    ],
+    "valid": [
+      "2021-01-01",
+      "2022-12-31"
+    ],
+    "test": [
+      "2023-01-01",
+      "2025-12-31"
+    ]
+  },
+  "per_market": {
+    "csi300": {
+      "benchmark": "SH000300",
+      "provider_uri": "~/.qlib/qlib_data/cn_data",
+      "region": "cn",
+      "instruments": "csi300",
+      "label": [
+        "Ref($close, -5) / Ref($close, -1) - 1"
+      ],
+      "data_start_time": "2009-01-01",
+      "data_end_time": "2026-01-31"
+    },
+    "sp500": {
+      "benchmark": "^gspc",
+      "provider_uri": "~/.qlib/qlib_data/us_data",
+      "region": "us",
+      "instruments": "sp500",
+      "label": [
+        "Ref($close, -5) / Ref($close, -1) - 1"
+      ],
+      "data_start_time": "2009-01-01",
+      "data_end_time": "2026-01-31"
+    }
+  },
+  "backtest": {
+    "engine": "qlib.contrib.backtest (TopkDropoutStrategy + SimulatorExecutor)",
+    "strategy": "TopK-DropN",
+    "topk": 30,
+    "n_drop": 5,
+    "weight_method": "equal weight across held names (qlib TopkDropout default)",
+    "account": 100000000.0,
+    "deal_price": "close",
+    "buy_cost": 0.0005,
+    "sell_cost": 0.0015,
+    "note": "Identical strategy to backtest.py. report_normal['return'] is the GROSS daily portfolio return (qlib adds the day's cost back to the true net earning, see qlib/backtest/account.py); 'cost' is the transaction-cost rate; 'bench' is the benchmark daily return. daily_ret_net = return - cost, so cost is deducted EXACTLY once. The original backtest_results/*_summary.csv reports EXCESS return (return - bench); protocol portfolio metrics here are on the ABSOLUTE net portfolio return, not excess."
+  },
+  "return_semantics": {
+    "daily_ret_gross": "qlib report_normal['return'] (gross of cost)",
+    "cost": "qlib report_normal['cost']",
+    "daily_ret_net": "daily_ret_gross - cost (deducted once)",
+    "bench_ret": "qlib report_normal['bench'] (benchmark daily return)",
+    "already_net": false,
+    "double_deduction_check": "net = gross - cost; cost column >= 0 (asserted at build time)"
+  },
+  "metric_convention": {
+    "annualization": 252,
+    "ddof": 1,
+    "risk_free_rate": 0,
+    "MAR_daily": 0,
+    "return_transform": "log1p (g_t = log(1 + r_net_t))",
+    "IC": "mean of per-day Pearson(prediction,label); days with undefined corr skipped",
+    "ICIR": "mean(IC_t)/std(IC_t, ddof=1), NOT annualized",
+    "RankIC": "mean of per-day Spearman(prediction,label)",
+    "RankICIR": "mean(RankIC_t)/std(RankIC_t, ddof=1), NOT annualized",
+    "AR": "exp(mean(g_t)*252) - 1",
+    "STD": "std(g_t, ddof=1)*sqrt(252)",
+    "MDD": "min(NAV/cummax(NAV) - 1), NAV = [1.0, exp(cumsum(g_t))]",
+    "Sharpe": "sqrt(252)*mean(g_t)/std(g_t, ddof=1)  # absolute net return, NOT benchmark-relative IR",
+    "Sortino": "sqrt(252)*mean(g_t)/sqrt(mean(min(g_t,0)^2))  # downside over ALL days",
+    "Calmar": "AR/abs(MDD)",
+    "undefined_handling": "zero denominator / <2 samples -> NaN (never 0); r_net<=-1 -> hard error"
+  },
+  "ensemble": {
+    "enabled": true,
+    "min_seeds_required": 2,
+    "join": "inner join on (datetime, instrument) across selected seeds",
+    "methods": [
+      "avg_none",
+      "avg_rank",
+      "avg_zscore"
+    ],
+    "default_method": "avg_none",
+    "score_formula": {
+      "avg_none": "mean of raw scores across seeds",
+      "avg_zscore": "per-day cross-sectional z-score (ddof=0) per seed, then mean",
+      "avg_rank": "per-day cross-sectional rank percentile per seed, then mean"
+    },
+    "ranking_metrics_source": "recomputed directly from ensemble score vs aligned test label (NOT seed-mean)",
+    "portfolio_metrics_source": "re-run the identical TopK-DropN backtest on the ensemble score"
+  },
+  "data_version": {
+    "cn_provider": "~/.qlib/qlib_data/cn_data",
+    "us_provider": "~/.qlib/qlib_data/us_data",
+    "data_end_time": "2026-01-31"
+  },
+  "git": {
+    "commit": "3e39a8475e0dcd8d85103cfff123b344c2046f55",
+    "branch": "feat/matcc-baseline-csi300-sp500"
+  }
+}

@@ -113,7 +113,8 @@ dataset/<market>/                 prepared train/valid/test samplers + manifest
 model_params/<market>/<tag>/     resume, best-RankIC, and final checkpoints
 label_pred/<market>/<tag>/       indexed predictions and labels
 metrics/<market>/<tag>/          per-seed IC/RankIC metrics
-backtest_results/                five-seed portfolio summaries
+backtest_results/                five-seed portfolio summaries (excess return)
+results/                         unified Protocol v1.0 evaluation tree (see below)
 logs/                            optional run logs
 ```
 
@@ -143,6 +144,52 @@ selected by maximum validation RankIC.
 The corrected CSI300 results are positive and stable across seeds. The current MATCC
 configuration does not produce a stable out-of-sample signal on S&P500.
 
+## Unified evaluation results (Protocol v1.0)
+
+`results/` is a cross-baseline-comparable evaluation tree produced by the `eval/`
+package. It reuses the existing predictions and re-runs the **identical** Qlib
+TopK-DropN backtest; it does not retrain or change the strategy. The metrics above
+(excess return) are the project's native report; the metrics in `results/` use the
+shared Protocol v1.0 convention, whose portfolio metrics are on the **absolute net
+portfolio return** (`daily_return_gross - cost`), not excess return.
+
+```bash
+bash run_eval.sh                       # build both markets + finalize + validate
+MARKETS="csi300" bash run_eval.sh      # one market
+```
+
+Layout:
+
+```text
+results/
+├── metrics/
+│   ├── seed_metrics.csv        one row per (market, model, seed): IC/ICIR/RankIC/RankICIR/
+│   │                           AR/STD/MDD/Sharpe/Sortino/Calmar + num_test_days + pred path
+│   ├── aggregate_metrics.csv   mean/std (ddof=1) across seeds, per (market, model)
+│   └── ensemble_metrics.csv    per (market, model, ensemble_method): avg_none/avg_zscore/avg_rank
+├── tables/
+│   ├── seed_mean_std.csv       4-dp "mean ± std" presentation of aggregate_metrics
+│   └── ensemble.csv            4-dp presentation of ensemble_metrics
+├── curves/ensemble/*.csv       daily_ret_gross,cost,daily_ret_net,bench_ret,nav,bench_nav
+├── metadata/
+│   ├── eval_config.json        actual run口径: splits, costs, benchmark, metric convention, git
+│   └── manifest.json           file registry + primary keys
+└── diagnostics/
+    └── validation.json         machine-readable check report (exit 0 iff all pass)
+```
+
+Metric convention (frozen): 252 trading days, `ddof=1`, risk-free 0, `MAR_daily=0`,
+log returns. `IC`/`RankIC` are means of per-day cross-sectional Pearson/Spearman;
+`ICIR`/`RankICIR` use `ddof=1` and are **not** annualized. `AR=exp(mean(g)*252)-1`,
+`STD=std(g,ddof=1)*sqrt(252)`, `MDD=min(NAV/cummax(NAV)-1)` with `NAV=[1.0,exp(cumsum(g))]`,
+`Sharpe=sqrt(252)*mean(g)/std(g,ddof=1)` (absolute net, not benchmark-relative IR),
+`Sortino=sqrt(252)*mean(g)/sqrt(mean(min(g,0)^2))`, `Calmar=AR/|MDD|`, where
+`g=log1p(daily_ret_net)`. Undefined inputs (zero denominator, `<2` samples) are NaN,
+never 0; `daily_ret_net <= -1` is a hard error. Ensemble ranking metrics are recomputed
+from the averaged score (never the seed-IC mean), and the ensemble re-runs the same
+backtest. `results/_staging/` and `results/_cache/` are regenerable intermediates and
+are git-ignored.
+
 ## Tests
 
 ```bash
@@ -151,7 +198,9 @@ pytest -q tests
 
 Regression tests cover daily batch construction, label masking, dataset cache
 fingerprints, safe restarts, RNG restoration, atomic checkpoint publication, and
-RankIC checkpoint selection.
+RankIC checkpoint selection. `tests/test_eval_metrics.py` pins the Protocol v1.0 metric
+convention and its boundary conditions (first-day -10% drawdown, Sortino with repeated
+negative days, `r <= -1` raises).
 
 ## Project structure
 
@@ -164,6 +213,8 @@ scripts/prepare_data.py    Qlib dataset builder
 train.py                   resumable training and RankIC checkpoint selection
 test.py                    aligned day-by-day inference
 backtest.py                region-aware TopK-DropN backtest
+eval/                      unified Protocol v1.0 results export (metrics, build, finalize, validate)
+run_eval.sh                build the comparable results/ tree from existing predictions
 util/*.yaml                full and smoke data configurations
 tests/                     regression tests
 ```

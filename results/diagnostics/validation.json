@@ -1,0 +1,502 @@
+{
+  "passed": true,
+  "passes": 99,
+  "failures": 0,
+  "checks": [
+    {
+      "name": "manifest.json exists",
+      "passed": true,
+      "detail": "results/metadata/manifest.json"
+    },
+    {
+      "name": "eval_config.json exists",
+      "passed": true,
+      "detail": "results/metadata/eval_config.json"
+    },
+    {
+      "name": "manifest path 'seed_metrics' exists",
+      "passed": true,
+      "detail": "metrics/seed_metrics.csv"
+    },
+    {
+      "name": "manifest path 'aggregate_metrics' exists",
+      "passed": true,
+      "detail": "metrics/aggregate_metrics.csv"
+    },
+    {
+      "name": "manifest path 'seed_table' exists",
+      "passed": true,
+      "detail": "tables/seed_mean_std.csv"
+    },
+    {
+      "name": "manifest path 'eval_config' exists",
+      "passed": true,
+      "detail": "metadata/eval_config.json"
+    },
+    {
+      "name": "manifest path 'manifest' exists",
+      "passed": true,
+      "detail": "metadata/manifest.json"
+    },
+    {
+      "name": "manifest path 'ensemble_metrics' exists",
+      "passed": true,
+      "detail": "metrics/ensemble_metrics.csv"
+    },
+    {
+      "name": "manifest path 'ensemble_table' exists",
+      "passed": true,
+      "detail": "tables/ensemble.csv"
+    },
+    {
+      "name": "manifest glob 'ensemble_curves' non-empty",
+      "passed": true,
+      "detail": "6 files match curves/ensemble/*.csv"
+    },
+    {
+      "name": "seed_metrics rows == markets x models x seeds",
+      "passed": true,
+      "detail": "expected=10 actual=10 missing=[] extra=[]"
+    },
+    {
+      "name": "seed_metrics primary key unique",
+      "passed": true,
+      "detail": "dups=0 on ['market', 'model', 'seed']"
+    },
+    {
+      "name": "aggregate_metrics primary key unique",
+      "passed": true,
+      "detail": "dups=0 on ['market', 'model']"
+    },
+    {
+      "name": "ensemble_metrics primary key unique",
+      "passed": true,
+      "detail": "dups=0 on ['market', 'model', 'ensemble_method']"
+    },
+    {
+      "name": "seed_metrics metrics finite (no NaN/Inf)",
+      "passed": true,
+      "detail": "all finite"
+    },
+    {
+      "name": "ensemble_metrics metrics finite (no NaN/Inf)",
+      "passed": true,
+      "detail": "all finite"
+    },
+    {
+      "name": "seed_metrics bounds |IC|<=1 |RankIC|<=1 STD>=0 MDD<=0 days>0",
+      "passed": true,
+      "detail": "IC<=1:True RankIC<=1:True STD>=0:True MDD<=0:True days>0:True"
+    },
+    {
+      "name": "ensemble_metrics bounds |IC|<=1 |RankIC|<=1 STD>=0 MDD<=0 days>0",
+      "passed": true,
+      "detail": "IC<=1:True RankIC<=1:True STD>=0:True MDD<=0:True days>0:True"
+    },
+    {
+      "name": "aggregate_metrics == seed mean/std (ddof=1)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "seed_mean_std table == aggregate within 4dp",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "ensemble table == ensemble_metrics within 4dp",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "ensemble_metrics rows == markets x models x methods",
+      "passed": true,
+      "detail": "expected=6 actual=6 missing=[] extra=[]"
+    },
+    {
+      "name": "ensemble curves present",
+      "passed": true,
+      "detail": "6 curve files"
+    },
+    {
+      "name": "curve csi300/avg_none: dates ascending",
+      "passed": true,
+      "detail": "2023-01-03..2025-12-31"
+    },
+    {
+      "name": "curve csi300/avg_none: dates unique",
+      "passed": true,
+      "detail": "727 rows"
+    },
+    {
+      "name": "curve csi300/avg_none: numeric finite",
+      "passed": true,
+      "detail": "all columns finite"
+    },
+    {
+      "name": "curve csi300/avg_none: net == gross - cost",
+      "passed": true,
+      "detail": "cost deducted once"
+    },
+    {
+      "name": "curve csi300/avg_none: nav == cumprod(1+net)",
+      "passed": true,
+      "detail": "curve NAV convention"
+    },
+    {
+      "name": "curve csi300/avg_none: bench_nav == cumprod(1+bench)",
+      "passed": true,
+      "detail": "bench NAV"
+    },
+    {
+      "name": "curve csi300/avg_none: portfolio metrics recompute == ensemble_metrics",
+      "passed": true,
+      "detail": "all match"
+    },
+    {
+      "name": "curve csi300/avg_rank: dates ascending",
+      "passed": true,
+      "detail": "2023-01-03..2025-12-31"
+    },
+    {
+      "name": "curve csi300/avg_rank: dates unique",
+      "passed": true,
+      "detail": "727 rows"
+    },
+    {
+      "name": "curve csi300/avg_rank: numeric finite",
+      "passed": true,
+      "detail": "all columns finite"
+    },
+    {
+      "name": "curve csi300/avg_rank: net == gross - cost",
+      "passed": true,
+      "detail": "cost deducted once"
+    },
+    {
+      "name": "curve csi300/avg_rank: nav == cumprod(1+net)",
+      "passed": true,
+      "detail": "curve NAV convention"
+    },
+    {
+      "name": "curve csi300/avg_rank: bench_nav == cumprod(1+bench)",
+      "passed": true,
+      "detail": "bench NAV"
+    },
+    {
+      "name": "curve csi300/avg_rank: portfolio metrics recompute == ensemble_metrics",
+      "passed": true,
+      "detail": "all match"
+    },
+    {
+      "name": "curve csi300/avg_zscore: dates ascending",
+      "passed": true,
+      "detail": "2023-01-03..2025-12-31"
+    },
+    {
+      "name": "curve csi300/avg_zscore: dates unique",
+      "passed": true,
+      "detail": "727 rows"
+    },
+    {
+      "name": "curve csi300/avg_zscore: numeric finite",
+      "passed": true,
+      "detail": "all columns finite"
+    },
+    {
+      "name": "curve csi300/avg_zscore: net == gross - cost",
+      "passed": true,
+      "detail": "cost deducted once"
+    },
+    {
+      "name": "curve csi300/avg_zscore: nav == cumprod(1+net)",
+      "passed": true,
+      "detail": "curve NAV convention"
+    },
+    {
+      "name": "curve csi300/avg_zscore: bench_nav == cumprod(1+bench)",
+      "passed": true,
+      "detail": "bench NAV"
+    },
+    {
+      "name": "curve csi300/avg_zscore: portfolio metrics recompute == ensemble_metrics",
+      "passed": true,
+      "detail": "all match"
+    },
+    {
+      "name": "curve sp500/avg_none: dates ascending",
+      "passed": true,
+      "detail": "2023-01-03..2025-12-31"
+    },
+    {
+      "name": "curve sp500/avg_none: dates unique",
+      "passed": true,
+      "detail": "752 rows"
+    },
+    {
+      "name": "curve sp500/avg_none: numeric finite",
+      "passed": true,
+      "detail": "all columns finite"
+    },
+    {
+      "name": "curve sp500/avg_none: net == gross - cost",
+      "passed": true,
+      "detail": "cost deducted once"
+    },
+    {
+      "name": "curve sp500/avg_none: nav == cumprod(1+net)",
+      "passed": true,
+      "detail": "curve NAV convention"
+    },
+    {
+      "name": "curve sp500/avg_none: bench_nav == cumprod(1+bench)",
+      "passed": true,
+      "detail": "bench NAV"
+    },
+    {
+      "name": "curve sp500/avg_none: portfolio metrics recompute == ensemble_metrics",
+      "passed": true,
+      "detail": "all match"
+    },
+    {
+      "name": "curve sp500/avg_rank: dates ascending",
+      "passed": true,
+      "detail": "2023-01-03..2025-12-31"
+    },
+    {
+      "name": "curve sp500/avg_rank: dates unique",
+      "passed": true,
+      "detail": "752 rows"
+    },
+    {
+      "name": "curve sp500/avg_rank: numeric finite",
+      "passed": true,
+      "detail": "all columns finite"
+    },
+    {
+      "name": "curve sp500/avg_rank: net == gross - cost",
+      "passed": true,
+      "detail": "cost deducted once"
+    },
+    {
+      "name": "curve sp500/avg_rank: nav == cumprod(1+net)",
+      "passed": true,
+      "detail": "curve NAV convention"
+    },
+    {
+      "name": "curve sp500/avg_rank: bench_nav == cumprod(1+bench)",
+      "passed": true,
+      "detail": "bench NAV"
+    },
+    {
+      "name": "curve sp500/avg_rank: portfolio metrics recompute == ensemble_metrics",
+      "passed": true,
+      "detail": "all match"
+    },
+    {
+      "name": "curve sp500/avg_zscore: dates ascending",
+      "passed": true,
+      "detail": "2023-01-03..2025-12-31"
+    },
+    {
+      "name": "curve sp500/avg_zscore: dates unique",
+      "passed": true,
+      "detail": "752 rows"
+    },
+    {
+      "name": "curve sp500/avg_zscore: numeric finite",
+      "passed": true,
+      "detail": "all columns finite"
+    },
+    {
+      "name": "curve sp500/avg_zscore: net == gross - cost",
+      "passed": true,
+      "detail": "cost deducted once"
+    },
+    {
+      "name": "curve sp500/avg_zscore: nav == cumprod(1+net)",
+      "passed": true,
+      "detail": "curve NAV convention"
+    },
+    {
+      "name": "curve sp500/avg_zscore: bench_nav == cumprod(1+bench)",
+      "passed": true,
+      "detail": "bench NAV"
+    },
+    {
+      "name": "curve sp500/avg_zscore: portfolio metrics recompute == ensemble_metrics",
+      "passed": true,
+      "detail": "all match"
+    },
+    {
+      "name": "ensemble IC recompute csi300/avg_none == ensemble_metrics",
+      "passed": true,
+      "detail": "matches saved score"
+    },
+    {
+      "name": "ensemble IC csi300/avg_none != seed-IC mean (not faked)",
+      "passed": true,
+      "detail": "ensemble=0.039737 seed_mean=0.033061"
+    },
+    {
+      "name": "ensemble IC recompute csi300/avg_rank == ensemble_metrics",
+      "passed": true,
+      "detail": "matches saved score"
+    },
+    {
+      "name": "ensemble IC csi300/avg_rank != seed-IC mean (not faked)",
+      "passed": true,
+      "detail": "ensemble=0.034914 seed_mean=0.033061"
+    },
+    {
+      "name": "ensemble IC recompute csi300/avg_zscore == ensemble_metrics",
+      "passed": true,
+      "detail": "matches saved score"
+    },
+    {
+      "name": "ensemble IC csi300/avg_zscore != seed-IC mean (not faked)",
+      "passed": true,
+      "detail": "ensemble=0.037966 seed_mean=0.033061"
+    },
+    {
+      "name": "ensemble IC recompute sp500/avg_none == ensemble_metrics",
+      "passed": true,
+      "detail": "matches saved score"
+    },
+    {
+      "name": "ensemble IC sp500/avg_none != seed-IC mean (not faked)",
+      "passed": true,
+      "detail": "ensemble=0.001476 seed_mean=0.000560"
+    },
+    {
+      "name": "ensemble IC recompute sp500/avg_rank == ensemble_metrics",
+      "passed": true,
+      "detail": "matches saved score"
+    },
+    {
+      "name": "ensemble IC sp500/avg_rank != seed-IC mean (not faked)",
+      "passed": true,
+      "detail": "ensemble=-0.001336 seed_mean=0.000560"
+    },
+    {
+      "name": "ensemble IC recompute sp500/avg_zscore == ensemble_metrics",
+      "passed": true,
+      "detail": "matches saved score"
+    },
+    {
+      "name": "ensemble IC sp500/avg_zscore != seed-IC mean (not faked)",
+      "passed": true,
+      "detail": "ensemble=0.000599 seed_mean=0.000560"
+    },
+    {
+      "name": "seed IC recompute csi300/0 == seed_metrics",
+      "passed": true,
+      "detail": "matches source pred/label"
+    },
+    {
+      "name": "seed portfolio recompute csi300/0 == seed_metrics",
+      "passed": true,
+      "detail": "matches cached daily"
+    },
+    {
+      "name": "seed IC recompute csi300/1 == seed_metrics",
+      "passed": true,
+      "detail": "matches source pred/label"
+    },
+    {
+      "name": "seed portfolio recompute csi300/1 == seed_metrics",
+      "passed": true,
+      "detail": "matches cached daily"
+    },
+    {
+      "name": "seed IC recompute csi300/2 == seed_metrics",
+      "passed": true,
+      "detail": "matches source pred/label"
+    },
+    {
+      "name": "seed portfolio recompute csi300/2 == seed_metrics",
+      "passed": true,
+      "detail": "matches cached daily"
+    },
+    {
+      "name": "seed IC recompute csi300/3 == seed_metrics",
+      "passed": true,
+      "detail": "matches source pred/label"
+    },
+    {
+      "name": "seed portfolio recompute csi300/3 == seed_metrics",
+      "passed": true,
+      "detail": "matches cached daily"
+    },
+    {
+      "name": "seed IC recompute csi300/4 == seed_metrics",
+      "passed": true,
+      "detail": "matches source pred/label"
+    },
+    {
+      "name": "seed portfolio recompute csi300/4 == seed_metrics",
+      "passed": true,
+      "detail": "matches cached daily"
+    },
+    {
+      "name": "seed IC recompute sp500/0 == seed_metrics",
+      "passed": true,
+      "detail": "matches source pred/label"
+    },
+    {
+      "name": "seed portfolio recompute sp500/0 == seed_metrics",
+      "passed": true,
+      "detail": "matches cached daily"
+    },
+    {
+      "name": "seed IC recompute sp500/1 == seed_metrics",
+      "passed": true,
+      "detail": "matches source pred/label"
+    },
+    {
+      "name": "seed portfolio recompute sp500/1 == seed_metrics",
+      "passed": true,
+      "detail": "matches cached daily"
+    },
+    {
+      "name": "seed IC recompute sp500/2 == seed_metrics",
+      "passed": true,
+      "detail": "matches source pred/label"
+    },
+    {
+      "name": "seed portfolio recompute sp500/2 == seed_metrics",
+      "passed": true,
+      "detail": "matches cached daily"
+    },
+    {
+      "name": "seed IC recompute sp500/3 == seed_metrics",
+      "passed": true,
+      "detail": "matches source pred/label"
+    },
+    {
+      "name": "seed portfolio recompute sp500/3 == seed_metrics",
+      "passed": true,
+      "detail": "matches cached daily"
+    },
+    {
+      "name": "seed IC recompute sp500/4 == seed_metrics",
+      "passed": true,
+      "detail": "matches source pred/label"
+    },
+    {
+      "name": "seed portfolio recompute sp500/4 == seed_metrics",
+      "passed": true,
+      "detail": "matches cached daily"
+    },
+    {
+      "name": "validation.json well-formed & self-consistent",
+      "passed": true,
+      "detail": "schema keys present; passes+failures == nchecks (97+0=97)"
+    },
+    {
+      "name": "validation.json round-trips from disk",
+      "passed": true,
+      "detail": "reloaded passes=98 failures=0"
+    }
+  ]
+}
