@@ -27,6 +27,11 @@ sys.path.insert(0, ROOT)
 
 from eval import MODEL_ID  # noqa: E402
 from eval.metrics import prediction_metrics, portfolio_metrics, nav_from_curve  # noqa: E402
+from eval.protocol import (  # noqa: E402
+    ACCOUNT, CLOSE_COST, DEAL_PRICE, EXECUTOR, FORBID_ALL_TRADE_AT_LIMIT, FREQ,
+    HOLD_THRESH, METHOD_BUY, METHOD_SELL, MIN_COST, N_DROP, ONLY_TRADABLE,
+    OPEN_COST, QLIB_SIGNAL_SHIFT, RISK_DEGREE, TOPK,
+)
 
 METRIC_COLS = [
     "IC", "ICIR", "RankIC", "RankICIR",
@@ -93,6 +98,39 @@ def run(out):
     seeds = cfg["seeds"]
     ens_enabled = cfg["ensemble"]["enabled"]
     ens_methods = cfg["ensemble"]["methods"]
+
+    # ---- protocol configuration is explicit and frozen ------------------ #
+    bt = cfg.get("backtest", {})
+    expected_bt = {
+        "strategy": "TopkDropoutStrategy", "topk": TOPK, "n_drop": N_DROP,
+        "method_sell": METHOD_SELL, "method_buy": METHOD_BUY,
+        "hold_thresh": HOLD_THRESH, "only_tradable": ONLY_TRADABLE,
+        "forbid_all_trade_at_limit": FORBID_ALL_TRADE_AT_LIMIT,
+        "risk_degree": RISK_DEGREE, "freq": FREQ, "executor": EXECUTOR,
+        "account": ACCOUNT, "deal_price": DEAL_PRICE, "open_cost": OPEN_COST,
+        "close_cost": CLOSE_COST, "min_cost": MIN_COST,
+    }
+    mismatched = {k: {"got": bt.get(k), "expected": v}
+                  for k, v in expected_bt.items() if bt.get(k) != v}
+    c.add("eval_config fixed Qlib strategy/backtest parameters", not mismatched,
+          mismatched if mismatched else "all fixed parameters explicit and exact")
+    test_start, test_end = cfg.get("split", {}).get("test", [None, None])
+    c.add("backtest interval == declared test split",
+          bt.get("start_time") == test_start and bt.get("end_time") == test_end,
+          f"backtest={bt.get('start_time')}..{bt.get('end_time')} test={test_start}..{test_end}")
+    align = cfg.get("signal_alignment", {})
+    align_ok = (align.get("signal_date") == "t-1" and align.get("trade_date") == "t"
+                and align.get("qlib_internal_shift") == QLIB_SIGNAL_SHIFT
+                and align.get("adapter_shift") == 0 and bool(align.get("label_horizon")))
+    c.add("signal t-1 -> trade t alignment recorded", align_ok, align)
+    per_market_ok = all(
+        all(cfg.get("per_market", {}).get(m, {}).get(k) is not None for k in
+            ("provider_uri", "region", "instruments", "benchmark", "deal_price",
+             "limit_threshold", "suspension_and_untradable", "trade_unit"))
+        for m in markets
+    )
+    c.add("per-market Qlib/exchange metadata complete", per_market_ok,
+          "provider, region, instruments, benchmark, price/tradability/trade_unit")
 
     # ---- check 1: manifest file paths exist ------------------------------- #
     # NOTE: 'validation' is this validator's OWN output (written at the end of this run),
@@ -179,7 +217,7 @@ def run(out):
                 vals = pd.to_numeric(g[m], errors="coerce").dropna()
                 exp_mean = float(vals.mean()) if len(vals) else float("nan")
                 exp_std = float(vals.std(ddof=1)) if len(vals) >= 2 else (
-                    0.0 if len(vals) == 1 else float("nan"))
+                    float("nan"))
                 if not _close(r[f"{m}_mean"], exp_mean):
                     mism.append(f"{r.market}.{m}_mean: got {r[f'{m}_mean']} exp {exp_mean}")
                 if not _close(r[f"{m}_std"], exp_std):
@@ -239,8 +277,10 @@ def run(out):
 
     # ---- checks 9-12: per-curve structural + portfolio recompute --------- #
     curve_files = sorted(glob.glob(os.path.join(out, "curves", "ensemble", "*.csv")))
-    c.add("ensemble curves present", len(curve_files) > 0,
-          f"{len(curve_files)} curve files")
+    expected_curve_count = len(markets) * len(models) * len(ens_methods) if ens_enabled else 0
+    c.add("ensemble curves count == markets x models x methods",
+          len(curve_files) == expected_curve_count,
+          f"expected={expected_curve_count} actual={len(curve_files)}")
     for cf in curve_files:
         mk, meth = _curve_market_method(cf, markets)
         tag = f"{mk}/{meth}" if mk else os.path.basename(cf)
@@ -252,6 +292,10 @@ def run(out):
         c.add(f"curve {tag}: dates ascending", dts.is_monotonic_increasing,
               f"{dts.iloc[0].date()}..{dts.iloc[-1].date()}")
         c.add(f"curve {tag}: dates unique", dts.is_unique, f"{len(dts)} rows")
+        within_split = (dts.min() >= pd.Timestamp(test_start)
+                        and dts.max() <= pd.Timestamp(test_end))
+        c.add(f"curve {tag}: dates within declared test split", within_split,
+              f"curve={dts.min().date()}..{dts.max().date()} split={test_start}..{test_end}")
         # no NaN/Inf in any column
         num_clean = all(np.isfinite(cv[col].to_numpy(dtype=float)).all()
                         for col in cv.columns if col != "datetime")
@@ -338,6 +382,15 @@ def run(out):
                         if not _close(pm[col], float(r[col]))]
                 c.add(f"seed IC recompute {mk}/{s} == seed_metrics",
                       not mism, "mismatch: " + ",".join(mism) if mism else "matches source pred/label")
+                pred_dates = pd.DatetimeIndex(pred.index.get_level_values("datetime"))
+                daily_p = os.path.join(out, "_cache", f"{mk}_daily", f"{mk}_seed_{s}.csv")
+                if os.path.exists(daily_p):
+                    backtest_dates = pd.to_datetime(pd.read_csv(daily_p)["datetime"])
+                    coverage_ok = (pred_dates.min() <= backtest_dates.min()
+                                   and pred_dates.max() >= backtest_dates.max())
+                    c.add(f"prediction covers full backtest calendar {mk}/{s}", coverage_ok,
+                          f"prediction={pred_dates.min().date()}..{pred_dates.max().date()} "
+                          f"backtest={backtest_dates.min().date()}..{backtest_dates.max().date()}")
             # portfolio metrics from cached daily report
             daily_p = os.path.join(out, "_cache", f"{mk}_daily", f"{mk}_seed_{s}.csv")
             if os.path.exists(daily_p):

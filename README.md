@@ -147,8 +147,9 @@ configuration does not produce a stable out-of-sample signal on S&P500.
 ## Unified evaluation results (Protocol v1.0)
 
 `results/` is a cross-baseline-comparable evaluation tree produced by the `eval/`
-package. It reuses the existing predictions and re-runs the **identical** Qlib
-TopK-DropN backtest; it does not retrain or change the strategy. The metrics above
+package. It reuses the existing predictions and runs the protocol's additional,
+fully explicit Qlib TopK-DropN backtest; it does not retrain or overwrite the native
+backtest. The metrics above
 (excess return) are the project's native report; the metrics in `results/` use the
 shared Protocol v1.0 convention, whose portfolio metrics are on the **absolute net
 portfolio return** (`daily_return_gross - cost`), not excess return.
@@ -189,6 +190,15 @@ never 0; `daily_ret_net <= -1` is a hard error. Ensemble ranking metrics are rec
 from the averaged score (never the seed-IC mean), and the ensemble re-runs the same
 backtest. `results/_staging/` and `results/_cache/` are regenerable intermediates and
 are git-ignored.
+
+The protocol backtest explicitly sets `topk=30`, `n_drop=5`, `method_sell=bottom`,
+`method_buy=top`, `hold_thresh=1`, `only_tradable=false`,
+`forbid_all_trade_at_limit=true`, `risk_degree=0.95`, daily frequency, account
+`100000000`, buy/sell costs `0.0005/0.0015`, and `min_cost=0`. Qlib's region config
+owns `trade_unit`; the adapter does not override it. Predictions must cover the full
+declared test calendar. Qlib reads the `t-1` signal for trading on `t` (`shift=1`), and
+the adapter applies no additional date shift. The label horizon remains the native
+`Ref($close,-5)/Ref($close,-1)-1` (forward close return from `t+1` through `t+5`).
 
 ## Tests
 

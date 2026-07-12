@@ -23,7 +23,6 @@
     "aggregate_metrics": "metrics/aggregate_metrics.csv",
     "seed_table": "tables/seed_mean_std.csv",
     "eval_config": "metadata/eval_config.json",
-    "manifest": "metadata/manifest.json",
     "validation": "diagnostics/validation.json",
     "ensemble_metrics": "metrics/ensemble_metrics.csv",
     "ensemble_table": "tables/ensemble.csv",

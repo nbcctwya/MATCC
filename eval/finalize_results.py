@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import importlib.metadata
 import json
 import os
 import subprocess
@@ -30,8 +31,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from src.baseline_utils import yaml_path  # noqa: E402
-from backtest import TOPK, N_DROP, OPEN_COST, CLOSE_COST, ACCOUNT  # noqa: E402
 from eval import BASELINE_ID, MODEL_ID, ANNUAL, DDOF  # noqa: E402
+from eval.protocol import (  # noqa: E402
+    ACCOUNT, CLOSE_COST, DEAL_PRICE, EXECUTOR, FORBID_ALL_TRADE_AT_LIMIT, FREQ,
+    HOLD_THRESH, METHOD_BUY, METHOD_SELL, MIN_COST, N_DROP, ONLY_TRADABLE,
+    OPEN_COST, QLIB_SIGNAL_SHIFT, RISK_DEGREE, TOPK,
+)
 
 METRIC_COLS = [
     "IC", "ICIR", "RankIC", "RankICIR",
@@ -76,7 +81,7 @@ def build_aggregate(seed_df):
             vals = pd.to_numeric(g[m], errors="coerce").dropna()
             row[f"{m}_mean"] = float(vals.mean()) if len(vals) else float("nan")
             row[f"{m}_std"] = float(vals.std(ddof=DDOF)) if len(vals) >= 2 else (
-                0.0 if len(vals) == 1 else float("nan")
+                float("nan")
             )
         rows.append(row)
     return pd.DataFrame(rows, columns=["market", "model", *AGG_COLS])
@@ -133,6 +138,14 @@ def build_eval_config(seed_df, ens_df, tag):
             "label": cfg["data_handler_config"]["label"],
             "data_start_time": str(cfg["data_handler_config"]["start_time"]),
             "data_end_time": str(cfg["data_handler_config"]["end_time"]),
+            "deal_price": DEAL_PRICE,
+            "limit_threshold": (
+                "0.095; Qlib CN limit/tradability checks apply"
+                if cfg["qlib_init"]["region"] == "cn"
+                else "None; no A-share price-limit threshold is applied"
+            ),
+            "suspension_and_untradable": "handled by Qlib Exchange at order execution",
+            "trade_unit": "Qlib region default; adapter does not override",
         }
 
     ensemble_enabled = (not ens_df.empty) and ens_df["market"].nunique() > 0 and len(seeds) >= 2
@@ -151,17 +164,30 @@ def build_eval_config(seed_df, ens_df, tag):
         "split": {k: [str(a), str(b)] for k, (a, b) in segments.items()},
         "per_market": per_market,
         "backtest": {
-            "engine": "qlib.contrib.backtest (TopkDropoutStrategy + SimulatorExecutor)",
-            "strategy": "TopK-DropN",
+            "engine": "qlib.contrib.backtest",
+            "strategy": "TopkDropoutStrategy",
             "topk": TOPK,
             "n_drop": N_DROP,
-            "weight_method": "equal weight across held names (qlib TopkDropout default)",
+            "method_sell": METHOD_SELL,
+            "method_buy": METHOD_BUY,
+            "hold_thresh": HOLD_THRESH,
+            "only_tradable": ONLY_TRADABLE,
+            "forbid_all_trade_at_limit": FORBID_ALL_TRADE_AT_LIMIT,
+            "risk_degree": RISK_DEGREE,
+            "freq": FREQ,
+            "start_time": str(segments["test"][0]),
+            "end_time": str(segments["test"][1]),
+            "executor": EXECUTOR,
             "account": ACCOUNT,
-            "deal_price": "close",
-            "buy_cost": OPEN_COST,
-            "sell_cost": CLOSE_COST,
+            "deal_price": DEAL_PRICE,
+            "open_cost": OPEN_COST,
+            "close_cost": CLOSE_COST,
+            "min_cost": MIN_COST,
+            "trade_unit": "Qlib region default; adapter does not override",
+            "position_policy": "long-only, no short selling, no leverage",
             "note": (
-                "Identical strategy to backtest.py. report_normal['return'] is the GROSS "
+                "Additional protocol backtest; native backtest.py outputs remain untouched. "
+                "report_normal['return'] is the GROSS "
                 "daily portfolio return (qlib adds the day's cost back to the true net "
                 "earning, see qlib/backtest/account.py); 'cost' is the transaction-cost rate; "
                 "'bench' is the benchmark daily return. daily_ret_net = return - cost, so cost "
@@ -169,6 +195,14 @@ def build_eval_config(seed_df, ens_df, tag):
                 "EXCESS return (return - bench); protocol portfolio metrics here are on the "
                 "ABSOLUTE net portfolio return, not excess."
             ),
+        },
+        "signal_alignment": {
+            "signal_date": "t-1",
+            "trade_date": "t",
+            "qlib_internal_shift": QLIB_SIGNAL_SHIFT,
+            "qlib_implementation": "TopkDropoutStrategy.get_step_time(trade_step, shift=1)",
+            "adapter_shift": 0,
+            "label_horizon": "Ref($close, -5) / Ref($close, -1) - 1 (forward close return from t+1 to t+5)",
         },
         "return_semantics": {
             "daily_ret_gross": "qlib report_normal['return'] (gross of cost)",
@@ -216,9 +250,11 @@ def build_eval_config(seed_df, ens_df, tag):
             "data_end_time": per_market.get(markets[0], {}).get("data_end_time")
             if markets else None,
         },
+        "qlib_version": importlib.metadata.version("pyqlib"),
         "git": {
             "commit": _git(["rev-parse", "HEAD"]),
             "branch": _git(["rev-parse", "--abbrev-ref", "HEAD"]),
+            "working_tree_dirty": bool(_git(["status", "--porcelain"])),
         },
     }
 
@@ -229,7 +265,6 @@ def build_manifest(ensemble_enabled):
         "aggregate_metrics": "metrics/aggregate_metrics.csv",
         "seed_table": "tables/seed_mean_std.csv",
         "eval_config": "metadata/eval_config.json",
-        "manifest": "metadata/manifest.json",
         "validation": "diagnostics/validation.json",
     }
     primary_keys = {

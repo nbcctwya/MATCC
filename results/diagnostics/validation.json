@@ -1,6 +1,6 @@
 {
   "passed": true,
-  "passes": 99,
+  "passes": 118,
   "failures": 0,
   "checks": [
     {
@@ -12,6 +12,26 @@
       "name": "eval_config.json exists",
       "passed": true,
       "detail": "results/metadata/eval_config.json"
+    },
+    {
+      "name": "eval_config fixed Qlib strategy/backtest parameters",
+      "passed": true,
+      "detail": "all fixed parameters explicit and exact"
+    },
+    {
+      "name": "backtest interval == declared test split",
+      "passed": true,
+      "detail": "backtest=2023-01-01..2025-12-31 test=2023-01-01..2025-12-31"
+    },
+    {
+      "name": "signal t-1 -> trade t alignment recorded",
+      "passed": true,
+      "detail": "{'signal_date': 't-1', 'trade_date': 't', 'qlib_internal_shift': 1, 'qlib_implementation': 'TopkDropoutStrategy.get_step_time(trade_step, shift=1)', 'adapter_shift': 0, 'label_horizon': 'Ref($close, -5) / Ref($close, -1) - 1 (forward close return from t+1 to t+5)'}"
+    },
+    {
+      "name": "per-market Qlib/exchange metadata complete",
+      "passed": true,
+      "detail": "provider, region, instruments, benchmark, price/tradability/trade_unit"
     },
     {
       "name": "manifest path 'seed_metrics' exists",
@@ -32,11 +52,6 @@
       "name": "manifest path 'eval_config' exists",
       "passed": true,
       "detail": "metadata/eval_config.json"
-    },
-    {
-      "name": "manifest path 'manifest' exists",
-      "passed": true,
-      "detail": "metadata/manifest.json"
     },
     {
       "name": "manifest path 'ensemble_metrics' exists",
@@ -114,9 +129,9 @@
       "detail": "expected=6 actual=6 missing=[] extra=[]"
     },
     {
-      "name": "ensemble curves present",
+      "name": "ensemble curves count == markets x models x methods",
       "passed": true,
-      "detail": "6 curve files"
+      "detail": "expected=6 actual=6"
     },
     {
       "name": "curve csi300/avg_none: dates ascending",
@@ -127,6 +142,11 @@
       "name": "curve csi300/avg_none: dates unique",
       "passed": true,
       "detail": "727 rows"
+    },
+    {
+      "name": "curve csi300/avg_none: dates within declared test split",
+      "passed": true,
+      "detail": "curve=2023-01-03..2025-12-31 split=2023-01-01..2025-12-31"
     },
     {
       "name": "curve csi300/avg_none: numeric finite",
@@ -164,6 +184,11 @@
       "detail": "727 rows"
     },
     {
+      "name": "curve csi300/avg_rank: dates within declared test split",
+      "passed": true,
+      "detail": "curve=2023-01-03..2025-12-31 split=2023-01-01..2025-12-31"
+    },
+    {
       "name": "curve csi300/avg_rank: numeric finite",
       "passed": true,
       "detail": "all columns finite"
@@ -197,6 +222,11 @@
       "name": "curve csi300/avg_zscore: dates unique",
       "passed": true,
       "detail": "727 rows"
+    },
+    {
+      "name": "curve csi300/avg_zscore: dates within declared test split",
+      "passed": true,
+      "detail": "curve=2023-01-03..2025-12-31 split=2023-01-01..2025-12-31"
     },
     {
       "name": "curve csi300/avg_zscore: numeric finite",
@@ -234,6 +264,11 @@
       "detail": "752 rows"
     },
     {
+      "name": "curve sp500/avg_none: dates within declared test split",
+      "passed": true,
+      "detail": "curve=2023-01-03..2025-12-31 split=2023-01-01..2025-12-31"
+    },
+    {
       "name": "curve sp500/avg_none: numeric finite",
       "passed": true,
       "detail": "all columns finite"
@@ -269,6 +304,11 @@
       "detail": "752 rows"
     },
     {
+      "name": "curve sp500/avg_rank: dates within declared test split",
+      "passed": true,
+      "detail": "curve=2023-01-03..2025-12-31 split=2023-01-01..2025-12-31"
+    },
+    {
       "name": "curve sp500/avg_rank: numeric finite",
       "passed": true,
       "detail": "all columns finite"
@@ -302,6 +342,11 @@
       "name": "curve sp500/avg_zscore: dates unique",
       "passed": true,
       "detail": "752 rows"
+    },
+    {
+      "name": "curve sp500/avg_zscore: dates within declared test split",
+      "passed": true,
+      "detail": "curve=2023-01-03..2025-12-31 split=2023-01-01..2025-12-31"
     },
     {
       "name": "curve sp500/avg_zscore: numeric finite",
@@ -394,6 +439,11 @@
       "detail": "matches source pred/label"
     },
     {
+      "name": "prediction covers full backtest calendar csi300/0",
+      "passed": true,
+      "detail": "prediction=2023-01-03..2025-12-31 backtest=2023-01-03..2025-12-31"
+    },
+    {
       "name": "seed portfolio recompute csi300/0 == seed_metrics",
       "passed": true,
       "detail": "matches cached daily"
@@ -402,6 +452,11 @@
       "name": "seed IC recompute csi300/1 == seed_metrics",
       "passed": true,
       "detail": "matches source pred/label"
+    },
+    {
+      "name": "prediction covers full backtest calendar csi300/1",
+      "passed": true,
+      "detail": "prediction=2023-01-03..2025-12-31 backtest=2023-01-03..2025-12-31"
     },
     {
       "name": "seed portfolio recompute csi300/1 == seed_metrics",
@@ -414,6 +469,11 @@
       "detail": "matches source pred/label"
     },
     {
+      "name": "prediction covers full backtest calendar csi300/2",
+      "passed": true,
+      "detail": "prediction=2023-01-03..2025-12-31 backtest=2023-01-03..2025-12-31"
+    },
+    {
       "name": "seed portfolio recompute csi300/2 == seed_metrics",
       "passed": true,
       "detail": "matches cached daily"
@@ -422,6 +482,11 @@
       "name": "seed IC recompute csi300/3 == seed_metrics",
       "passed": true,
       "detail": "matches source pred/label"
+    },
+    {
+      "name": "prediction covers full backtest calendar csi300/3",
+      "passed": true,
+      "detail": "prediction=2023-01-03..2025-12-31 backtest=2023-01-03..2025-12-31"
     },
     {
       "name": "seed portfolio recompute csi300/3 == seed_metrics",
@@ -434,6 +499,11 @@
       "detail": "matches source pred/label"
     },
     {
+      "name": "prediction covers full backtest calendar csi300/4",
+      "passed": true,
+      "detail": "prediction=2023-01-03..2025-12-31 backtest=2023-01-03..2025-12-31"
+    },
+    {
       "name": "seed portfolio recompute csi300/4 == seed_metrics",
       "passed": true,
       "detail": "matches cached daily"
@@ -442,6 +512,11 @@
       "name": "seed IC recompute sp500/0 == seed_metrics",
       "passed": true,
       "detail": "matches source pred/label"
+    },
+    {
+      "name": "prediction covers full backtest calendar sp500/0",
+      "passed": true,
+      "detail": "prediction=2023-01-03..2025-12-31 backtest=2023-01-03..2025-12-31"
     },
     {
       "name": "seed portfolio recompute sp500/0 == seed_metrics",
@@ -454,6 +529,11 @@
       "detail": "matches source pred/label"
     },
     {
+      "name": "prediction covers full backtest calendar sp500/1",
+      "passed": true,
+      "detail": "prediction=2023-01-03..2025-12-31 backtest=2023-01-03..2025-12-31"
+    },
+    {
       "name": "seed portfolio recompute sp500/1 == seed_metrics",
       "passed": true,
       "detail": "matches cached daily"
@@ -462,6 +542,11 @@
       "name": "seed IC recompute sp500/2 == seed_metrics",
       "passed": true,
       "detail": "matches source pred/label"
+    },
+    {
+      "name": "prediction covers full backtest calendar sp500/2",
+      "passed": true,
+      "detail": "prediction=2023-01-03..2025-12-31 backtest=2023-01-03..2025-12-31"
     },
     {
       "name": "seed portfolio recompute sp500/2 == seed_metrics",
@@ -474,6 +559,11 @@
       "detail": "matches source pred/label"
     },
     {
+      "name": "prediction covers full backtest calendar sp500/3",
+      "passed": true,
+      "detail": "prediction=2023-01-03..2025-12-31 backtest=2023-01-03..2025-12-31"
+    },
+    {
       "name": "seed portfolio recompute sp500/3 == seed_metrics",
       "passed": true,
       "detail": "matches cached daily"
@@ -484,6 +574,11 @@
       "detail": "matches source pred/label"
     },
     {
+      "name": "prediction covers full backtest calendar sp500/4",
+      "passed": true,
+      "detail": "prediction=2023-01-03..2025-12-31 backtest=2023-01-03..2025-12-31"
+    },
+    {
       "name": "seed portfolio recompute sp500/4 == seed_metrics",
       "passed": true,
       "detail": "matches cached daily"
@@ -491,12 +586,12 @@
     {
       "name": "validation.json well-formed & self-consistent",
       "passed": true,
-      "detail": "schema keys present; passes+failures == nchecks (97+0=97)"
+      "detail": "schema keys present; passes+failures == nchecks (116+0=116)"
     },
     {
       "name": "validation.json round-trips from disk",
       "passed": true,
-      "detail": "reloaded passes=98 failures=0"
+      "detail": "reloaded passes=117 failures=0"
     }
   ]
 }

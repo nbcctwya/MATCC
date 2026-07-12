@@ -39,17 +39,18 @@ sys.path.insert(0, ROOT)
 
 import qlib  # noqa: E402
 from qlib.constant import REG_CN, REG_US  # noqa: E402
+from qlib.data import D  # noqa: E402
 from qlib.utils.time import Freq  # noqa: E402
 from qlib.backtest import backtest, executor  # noqa: E402
 from qlib.contrib.strategy import TopkDropoutStrategy  # noqa: E402
 
-# Reuse the project's canonical strategy constants -> identical backtest to backtest.py.
-from backtest import (  # noqa: E402
-    TOPK, N_DROP, OPEN_COST, CLOSE_COST, ACCOUNT, REGION,
-)
+from src.baseline_utils import REGION  # noqa: E402
 from src.baseline_utils import pred_path, labels_path, yaml_path, ensure_parent  # noqa: E402
 from eval import BASELINE_ID, MODEL_ID  # noqa: E402
 from eval.metrics import prediction_metrics, portfolio_metrics, nav_from_curve  # noqa: E402
+from eval.protocol import (  # noqa: E402
+    ACCOUNT, CLOSE_COST, DEAL_PRICE, FREQ, MIN_COST, OPEN_COST, strategy_kwargs,
+)
 
 REGION_CONST = {"cn": REG_CN, "us": REG_US}
 ENSEMBLE_METHODS = ["avg_none", "avg_zscore", "avg_rank"]
@@ -62,7 +63,7 @@ SEED_METRIC_COLS = [
 # --------------------------------------------------------------------------- #
 # Backtest (identical strategy to backtest.run_one_seed, returns the daily report)
 # --------------------------------------------------------------------------- #
-def run_backtest_report(signal, universe):
+def run_backtest_report(signal, universe, start_time, end_time):
     """Run the project's TopK-DropN backtest and return Qlib's daily ``report_normal``.
 
     ``report_normal`` columns include ``return`` (gross daily portfolio return, cost added
@@ -71,25 +72,19 @@ def run_backtest_report(signal, universe):
     """
     if isinstance(signal, pd.Series):
         signal = pd.DataFrame(signal)  # column "score", MultiIndex(datetime, instrument)
-    dates = signal.index.get_level_values("datetime")
-    start_time = str(pd.Timestamp(dates.min()).date())
-    end_time = str(pd.Timestamp(dates.max()).date())
-
     reg = REGION[universe]
     exchange_kwargs = dict(
-        freq="day",
+        freq=FREQ,
         limit_threshold=reg["limit_threshold"],
-        deal_price="close",
+        deal_price=DEAL_PRICE,
         open_cost=OPEN_COST,
         close_cost=CLOSE_COST,
-        min_cost=reg["min_cost"],
+        min_cost=MIN_COST,
     )
-    if reg["trade_unit"] is not None:
-        exchange_kwargs["trade_unit"] = reg["trade_unit"]
-
-    strategy_obj = TopkDropoutStrategy(topk=TOPK, n_drop=N_DROP, signal=signal)
+    # Do not override trade_unit: Qlib's region configuration owns board-lot semantics.
+    strategy_obj = TopkDropoutStrategy(**strategy_kwargs(signal))
     executor_obj = executor.SimulatorExecutor(
-        time_per_step="day", generate_portfolio_metrics=True,
+        time_per_step=FREQ, generate_portfolio_metrics=True,
     )
     portfolio_metric_dict, _ = backtest(
         executor=executor_obj, strategy=strategy_obj,
@@ -100,6 +95,22 @@ def run_backtest_report(signal, universe):
     analysis_freq = "{0}{1}".format(*Freq.parse("day"))
     report_normal, _ = portfolio_metric_dict.get(analysis_freq)
     return report_normal
+
+
+def validate_signal_coverage(signal, start_time, end_time, market, seed):
+    """Require predictions to cover the first and last Qlib trading day of test."""
+    dates = pd.DatetimeIndex(signal.index.get_level_values("datetime")).normalize()
+    calendar = pd.DatetimeIndex(D.calendar(start_time=start_time, end_time=end_time, freq=FREQ))
+    if calendar.empty:
+        raise RuntimeError(f"empty Qlib calendar for {market} test={start_time}..{end_time}")
+    actual_min, actual_max = dates.min(), dates.max()
+    if actual_min > calendar[0] or actual_max < calendar[-1]:
+        raise RuntimeError(
+            f"prediction coverage is shorter than declared test split for {market} seed={seed}: "
+            f"prediction={actual_min.date()}..{actual_max.date()}, "
+            f"calendar={calendar[0].date()}..{calendar[-1].date()}"
+        )
+    return calendar
 
 
 def report_to_daily(report):
@@ -195,6 +206,8 @@ def main():
         cfg = yaml.safe_load(f)
     region_str = cfg["qlib_init"]["region"]
     provider_uri = cfg["qlib_init"]["provider_uri"]
+    test_start, test_end = cfg["task"]["dataset"]["kwargs"]["segments"]["test"]
+    test_start, test_end = str(test_start), str(test_end)
     qlib.init(provider_uri=provider_uri, region=REGION_CONST[region_str])
     print(f"== build_results: market={market} tag={args.tag} seeds={seeds} ==")
 
@@ -215,9 +228,10 @@ def main():
             lab = pickle.load(f)
         preds[s] = pred
         labels[s] = lab
+        validate_signal_coverage(pred, test_start, test_end, market, s)
 
         rank = prediction_metrics(pred, lab)
-        report = run_backtest_report(pred, market)
+        report = run_backtest_report(pred, market, test_start, test_end)
         daily = report_to_daily(report)
         port = portfolio_metrics(daily["net"].to_numpy())
 
@@ -262,7 +276,8 @@ def main():
         for method in ENSEMBLE_METHODS:
             combined = ensemble_combine(score_df, method)
             rank = prediction_metrics(combined, label_aligned)
-            report = run_backtest_report(combined, market)
+            validate_signal_coverage(combined, test_start, test_end, market, f"ensemble:{method}")
+            report = run_backtest_report(combined, market, test_start, test_end)
             daily = report_to_daily(report)
             port = portfolio_metrics(daily["net"].to_numpy())
 

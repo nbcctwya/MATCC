@@ -40,7 +40,11 @@
         "Ref($close, -5) / Ref($close, -1) - 1"
       ],
       "data_start_time": "2009-01-01",
-      "data_end_time": "2026-01-31"
+      "data_end_time": "2026-01-31",
+      "deal_price": "close",
+      "limit_threshold": "0.095; Qlib CN limit/tradability checks apply",
+      "suspension_and_untradable": "handled by Qlib Exchange at order execution",
+      "trade_unit": "Qlib region default; adapter does not override"
     },
     "sp500": {
       "benchmark": "^gspc",
@@ -51,20 +55,44 @@
         "Ref($close, -5) / Ref($close, -1) - 1"
       ],
       "data_start_time": "2009-01-01",
-      "data_end_time": "2026-01-31"
+      "data_end_time": "2026-01-31",
+      "deal_price": "close",
+      "limit_threshold": "None; no A-share price-limit threshold is applied",
+      "suspension_and_untradable": "handled by Qlib Exchange at order execution",
+      "trade_unit": "Qlib region default; adapter does not override"
     }
   },
   "backtest": {
-    "engine": "qlib.contrib.backtest (TopkDropoutStrategy + SimulatorExecutor)",
-    "strategy": "TopK-DropN",
+    "engine": "qlib.contrib.backtest",
+    "strategy": "TopkDropoutStrategy",
     "topk": 30,
     "n_drop": 5,
-    "weight_method": "equal weight across held names (qlib TopkDropout default)",
-    "account": 100000000.0,
+    "method_sell": "bottom",
+    "method_buy": "top",
+    "hold_thresh": 1,
+    "only_tradable": false,
+    "forbid_all_trade_at_limit": true,
+    "risk_degree": 0.95,
+    "freq": "day",
+    "start_time": "2023-01-01",
+    "end_time": "2025-12-31",
+    "executor": "SimulatorExecutor",
+    "account": 100000000,
     "deal_price": "close",
-    "buy_cost": 0.0005,
-    "sell_cost": 0.0015,
-    "note": "Identical strategy to backtest.py. report_normal['return'] is the GROSS daily portfolio return (qlib adds the day's cost back to the true net earning, see qlib/backtest/account.py); 'cost' is the transaction-cost rate; 'bench' is the benchmark daily return. daily_ret_net = return - cost, so cost is deducted EXACTLY once. The original backtest_results/*_summary.csv reports EXCESS return (return - bench); protocol portfolio metrics here are on the ABSOLUTE net portfolio return, not excess."
+    "open_cost": 0.0005,
+    "close_cost": 0.0015,
+    "min_cost": 0,
+    "trade_unit": "Qlib region default; adapter does not override",
+    "position_policy": "long-only, no short selling, no leverage",
+    "note": "Additional protocol backtest; native backtest.py outputs remain untouched. report_normal['return'] is the GROSS daily portfolio return (qlib adds the day's cost back to the true net earning, see qlib/backtest/account.py); 'cost' is the transaction-cost rate; 'bench' is the benchmark daily return. daily_ret_net = return - cost, so cost is deducted EXACTLY once. The original backtest_results/*_summary.csv reports EXCESS return (return - bench); protocol portfolio metrics here are on the ABSOLUTE net portfolio return, not excess."
+  },
+  "signal_alignment": {
+    "signal_date": "t-1",
+    "trade_date": "t",
+    "qlib_internal_shift": 1,
+    "qlib_implementation": "TopkDropoutStrategy.get_step_time(trade_step, shift=1)",
+    "adapter_shift": 0,
+    "label_horizon": "Ref($close, -5) / Ref($close, -1) - 1 (forward close return from t+1 to t+5)"
   },
   "return_semantics": {
     "daily_ret_gross": "qlib report_normal['return'] (gross of cost)",
@@ -115,8 +143,10 @@
     "us_provider": "~/.qlib/qlib_data/us_data",
     "data_end_time": "2026-01-31"
   },
+  "qlib_version": "0.9.7",
   "git": {
-    "commit": "3e39a8475e0dcd8d85103cfff123b344c2046f55",
-    "branch": "feat/matcc-baseline-csi300-sp500"
+    "commit": "58da0c03bd909fe1f5111b31f5bb9bffa50c5343",
+    "branch": "feat/matcc-baseline-csi300-sp500",
+    "working_tree_dirty": true
   }
 }

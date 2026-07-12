@@ -24,6 +24,15 @@ from eval.metrics import (  # noqa: E402
     portfolio_metrics,
     prediction_metrics,
 )
+from eval.protocol import strategy_kwargs  # noqa: E402
+
+
+def test_protocol_strategy_kwargs_are_all_explicit():
+    assert strategy_kwargs() == {
+        "topk": 30, "n_drop": 5, "method_sell": "bottom", "method_buy": "top",
+        "hold_thresh": 1, "only_tradable": False,
+        "forbid_all_trade_at_limit": True, "risk_degree": 0.95,
+    }
 
 
 # --------------------------------------------------------------------------- #
