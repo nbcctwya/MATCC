@@ -24,3 +24,6 @@ model_params/sp500/
 # is small text and intended to be committable/shareable; only these are excluded.
 results/_staging/
 results/_cache/
+
+# dynamic evaluation outputs (yearly/quarterly/monthly)
+dynamic_metrics/
